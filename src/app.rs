@@ -5,7 +5,7 @@ use axum::routing::{get, IntoMakeService};
 use axum::{Json, Router};
 use serde::Serialize;
 
-pub fn build_app() -> IntoMakeService<Router> {
+pub fn build() -> IntoMakeService<Router> {
     tracing::debug!("Initializing the app");
     let app: Router<(), Body> = Router::new().route("/", get(default_route_handler));
     app.into_make_service()

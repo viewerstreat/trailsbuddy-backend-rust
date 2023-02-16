@@ -25,7 +25,7 @@ async fn main() {
     // build the socket address
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     // create the app instance
-    let app = app::build_app();
+    let app = app::build();
     tracing::debug!("Starting the app in: {addr}");
     // start serving the app in the socket address
     axum::Server::bind(&addr).serve(app).await.unwrap();
