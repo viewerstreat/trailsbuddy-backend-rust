@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod app;
+mod constants;
+mod database;
 
 #[tokio::main]
 async fn main() {

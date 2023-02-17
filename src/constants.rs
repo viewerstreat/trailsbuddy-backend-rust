@@ -1,0 +1,1 @@
+pub const REQUEST_TIMEOUT_SECS: u64 = 30;
