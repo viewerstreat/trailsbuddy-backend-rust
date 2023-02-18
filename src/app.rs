@@ -1,20 +1,30 @@
 use axum::body::{boxed, Body};
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use axum::routing::{get, IntoMakeService};
-use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use axum::{
+    http::{header, HeaderValue},
+    routing::{get, IntoMakeService},
+    Router,
+};
 use std::time::Duration;
 use tower::ServiceBuilder;
-use tower_http::cors::CorsLayer;
-use tower_http::timeout::TimeoutLayer;
-use tower_http::ServiceBuilderExt;
+use tower_http::{
+    cors::CorsLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer, trace::TraceLayer,
+    ServiceBuilderExt,
+};
 
 use crate::constants::REQUEST_TIMEOUT_SECS;
+use crate::database::get_db;
+use crate::handlers::clips::get_clips_handler;
+use crate::handlers::default::default_route_handler;
 
 /// Initializes the app with all routes and middlewares
-pub fn build() -> IntoMakeService<Router> {
+pub async fn build() -> IntoMakeService<Router> {
     tracing::debug!("Initializing the app");
+    // create a response header layer for middleware
+    let server_header_value = HeaderValue::from_static("trailsbuddy-backend-rust");
+    let set_response_header_layer =
+        SetResponseHeaderLayer::if_not_present(header::SERVER, server_header_value);
+    // create the trace layer for middleware
+    // let trace_layer = TraceLayer::new_for_http();
     // create the cors layer for middleware
     let cors_layer = CorsLayer::permissive();
     // create the timeout layer for middleware
@@ -22,31 +32,22 @@ pub fn build() -> IntoMakeService<Router> {
     // combine all middlewares with ServiceBuilder
     let middleware = ServiceBuilder::new()
         .layer(timeout_layer)
+        .layer(cors_layer)
+        .layer(set_response_header_layer)
         .map_response_body(boxed)
-        .compression();
+        .layer(TraceLayer::new_for_http())
+        .compression()
+        .into_inner();
+    // create database client
+    let db_client = get_db().await.expect("Unable to accquire database client");
     // create the app instance with all routes and middleware
     let app: Router<(), Body> = Router::new()
         .route("/", get(default_route_handler))
-        .layer(cors_layer)
-        .layer(middleware);
+        .route("/clip", get(get_clips_handler))
+        .layer(middleware)
+        .with_state(db_client);
     // return the IntoMakeService instance
     app.into_make_service()
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct DefaultResponse {
-    success: bool,
-    message: String,
-}
-
-/// Handler function for default route "/"
-/// Returns a JSON response with 200 status code
-async fn default_route_handler() -> impl IntoResponse {
-    let response = DefaultResponse {
-        success: true,
-        message: "Server is running".to_string(),
-    };
-    (StatusCode::OK, Json(response))
 }
 
 #[cfg(test)]
@@ -56,13 +57,16 @@ mod tests {
     use axum::body::Body;
     use axum::http::Request;
 
+    use crate::handlers::default::DefaultResponse;
+
     use super::*;
 
     #[tokio::test]
     async fn test_app_default_route() {
+        dotenvy::dotenv().ok();
         let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
         let listener = TcpListener::bind(&addr).unwrap();
-        let app = build();
+        let app = build().await;
 
         tokio::spawn(async move {
             axum::Server::from_tcp(listener)
