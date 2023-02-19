@@ -1,23 +1,22 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::IntoResponse,
     Json,
 };
 use futures::stream::StreamExt;
+use mongodb::bson::serde_helpers::hex_string_as_object_id;
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{doc, oid::ObjectId, Document},
     options::FindOptions,
-    Client,
+    Client, Collection,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::constants::*;
-use crate::utils::deserialize_objectid;
+use crate::utils::AppError;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipSchema {
-    #[serde(deserialize_with = "deserialize_objectid")]
+    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
     _id: String,
 
     name: Option<String>,
@@ -60,70 +59,63 @@ pub struct Params {
 pub async fn get_clips_handler(
     State(client): State<Client>,
     params: Query<Params>,
-) -> impl IntoResponse {
+) -> Result<Json<Response>, AppError> {
     // get the clips collection instance to query
     let coll = client
         .database(DB_NAME)
         .collection::<ClipSchema>(COLL_CLIPS);
-    // calculate skip and limit value from query params pageIndex and pageSize
-    let page_index = params.page_index.unwrap_or(0);
-    let page_size = params.page_size.unwrap_or(DEFAULT_QUERY_LIMIT);
-    let skip = page_index * page_size;
-    // create the find_by filter doc
-    let mut find_by = doc! {"isActive": true};
-    if let Some(id) = &params.id {
-        // create the ObjectId value from the string value
-        let oid = ObjectId::parse_str(id);
-        // return error respone when error
-        if oid.is_err() {
-            return send_error_response(oid.err().unwrap(), "not able to parse _id value");
-        }
-        // set the _id value in find_by document
-        let oid = oid.unwrap();
-        find_by.insert("_id", oid);
-    }
-
-    // create the document for sort by
-    let sort_by = doc! {"_id": -1};
-    // create the find options
-    let mut options = FindOptions::default();
-    options.sort = Some(sort_by);
-    options.skip = Some(skip);
-    options.limit = Some(page_size as i64);
-    // get result from the database
-    let result = coll.find(find_by, options).await;
-    if result.is_err() {
-        let err = result.err().unwrap();
-        return send_error_response(err, "not able to fetch result from database");
-    }
-    let mut cursor = result.unwrap();
-    let mut data: Vec<ClipSchema> = vec![];
-    // loop through the cursor and collect result into data vec
-    while let Some(doc) = cursor.next().await {
-        if doc.is_err() {
-            return send_error_response(doc.err().unwrap(), "Error in cursor read");
-        }
-        data.push(doc.unwrap());
-    }
+    let find_by = create_find_by_doc(&params)?;
+    let options = create_find_options(&params);
+    let data = get_query_result(coll, find_by, options).await?;
     // return successful response
     let res = Response {
         success: true,
         data,
         message: None,
     };
-    (StatusCode::OK, Json(res))
+    Ok(Json(res))
 }
 
-// helper function to send Internal Server Error when mongo error occurred
-fn send_error_response(
-    err: impl std::error::Error,
-    msg: &'static str,
-) -> (StatusCode, Json<Response>) {
-    tracing::debug!("{:?}", err);
-    let res = Response {
-        success: false,
-        data: vec![],
-        message: Some(msg),
-    };
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(res))
+// dynamic find_by filter doc based on the query params
+fn create_find_by_doc(params: &Query<Params>) -> anyhow::Result<Document> {
+    // always filter by isActive = true
+    let mut find_by = doc! {"isActive": true};
+    // if query params contain _id value the include in the filter
+    if let Some(id) = &params.id {
+        // create the ObjectId value from the string value
+        let oid = ObjectId::parse_str(id)?;
+        find_by.insert("_id", oid);
+    }
+    Ok(find_by)
+}
+
+// create find options based on query params
+fn create_find_options(params: &Query<Params>) -> FindOptions {
+    // calculate skip and limit value from query params pageIndex and pageSize
+    let page_index = params.page_index.unwrap_or(0);
+    let page_size = params.page_size.unwrap_or(DEFAULT_QUERY_LIMIT);
+    let skip = page_index * page_size;
+    // create sort_by doc
+    let sort_by = doc! {"_id": -1};
+    // create FindOptions
+    let mut options = FindOptions::default();
+    options.sort = Some(sort_by);
+    options.skip = Some(skip);
+    options.limit = Some(page_size as i64);
+    options
+}
+
+// query the database and return result
+async fn get_query_result(
+    coll: Collection<ClipSchema>,
+    find_by: Document,
+    options: FindOptions,
+) -> anyhow::Result<Vec<ClipSchema>> {
+    let mut cursor = coll.find(find_by, options).await?;
+    let mut data: Vec<ClipSchema> = vec![];
+    // loop through the cursor and collect result into data vec
+    while let Some(doc) = cursor.next().await {
+        data.push(doc?);
+    }
+    Ok(data)
 }

@@ -1,21 +1,23 @@
-use mongodb::bson::oid::ObjectId;
-use serde::{Deserialize, Deserializer};
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
+use serde_json::json;
 
-/// Custom deserialize function to convert mongodb ObjectId to String
-/// Field level attribute `deserialize_with` to be provided as below
-///```
-/// #[derive(serde::Deserialize)]
-/// struct MyStruct {
-///    #[serde(deserialize_with = "deserialize_objectid")]
-///    _id: String,
-///    // other fields
-/// }
-///```
-///   
-pub fn deserialize_objectid<'de, D>(val: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let oid = ObjectId::deserialize(val)?;
-    Ok(oid.to_hex())
+pub struct AppError(anyhow::Error);
+
+impl<E: Into<anyhow::Error>> From<E> for AppError {
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let msg = format!("Something went wrong: {}", self.0);
+        let json_val = json!({"success": false, "message": msg});
+        let res = (StatusCode::INTERNAL_SERVER_ERROR, Json(json_val));
+        res.into_response()
+    }
 }
