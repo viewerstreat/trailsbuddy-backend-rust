@@ -1,5 +1,5 @@
-use axum::body::{boxed, Body};
 use axum::{
+    body::{boxed, Body},
     http::{header, HeaderValue},
     routing::{get, IntoMakeService},
     Router,
@@ -13,8 +13,9 @@ use tower_http::{
 
 use crate::constants::REQUEST_TIMEOUT_SECS;
 use crate::database::get_db;
-use crate::handlers::clips::get_clips_handler;
-use crate::handlers::default::default_route_handler;
+use crate::handlers::{
+    clips::get_clips_handler, default::default_route_handler, global_404::global_404_handler,
+};
 
 /// Initializes the app with all routes and middlewares
 pub async fn build() -> IntoMakeService<Router> {
@@ -45,6 +46,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/", get(default_route_handler))
         .route("/clip", get(get_clips_handler))
         .layer(middleware)
+        .fallback(global_404_handler)
         .with_state(db_client);
     // return the IntoMakeService instance
     app.into_make_service()
