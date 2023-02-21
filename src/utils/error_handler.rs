@@ -16,6 +16,7 @@ impl<E: Into<anyhow::Error>> From<E> for AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let msg = format!("Something went wrong: {}", self.0);
+        tracing::debug!("{msg}");
         let json_val = json!({"success": false, "message": msg});
         let res = (StatusCode::INTERNAL_SERVER_ERROR, Json(json_val));
         res.into_response()

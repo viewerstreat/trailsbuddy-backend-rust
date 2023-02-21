@@ -11,8 +11,7 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::constants::*;
-use crate::utils::AppError;
+use crate::{constants::*, utils::error_handler::AppError};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipSchema {
