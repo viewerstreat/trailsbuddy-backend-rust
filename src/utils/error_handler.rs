@@ -5,20 +5,33 @@ use axum::{
 };
 use serde_json::json;
 
-pub struct AppError(anyhow::Error);
+pub enum AppError {
+    BadRequestErr(&'static str),
+    AnyError(anyhow::Error),
+}
 
 impl<E: Into<anyhow::Error>> From<E> for AppError {
     fn from(err: E) -> Self {
-        Self(err.into())
+        Self::AnyError(err.into())
     }
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let msg = format!("Something went wrong: {}", self.0);
-        tracing::debug!("{msg}");
-        let json_val = json!({"success": false, "message": msg});
-        let res = (StatusCode::INTERNAL_SERVER_ERROR, Json(json_val));
-        res.into_response()
+        match self {
+            Self::BadRequestErr(msg) => {
+                tracing::debug!("Bad request: {}", msg);
+                let json_val = json!({"success": false, "message": msg});
+                let res = (StatusCode::BAD_REQUEST, Json(json_val));
+                res.into_response()
+            }
+            Self::AnyError(err) => {
+                let msg = format!("Something went wrong: {}", err);
+                tracing::debug!("{msg}");
+                let json_val = json!({"success": false, "message": msg});
+                let res = (StatusCode::INTERNAL_SERVER_ERROR, Json(json_val));
+                res.into_response()
+            }
+        }
     }
 }

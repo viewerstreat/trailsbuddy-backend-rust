@@ -4,9 +4,9 @@ use axum::{
     http::{Request, StatusCode},
     Json, RequestExt,
 };
-use mongodb::Client;
+
 use serde_json::{json, Value};
-use validator::{Validate, ValidateArgs, ValidationError};
+use validator::{Validate, ValidationError};
 
 /// Custom validator function to check phone number
 pub fn validate_phonenumber(phone: &str) -> Result<(), ValidationError> {
@@ -38,46 +38,24 @@ where
     T: Validate + 'static,
     Json<T>: FromRequest<(), B>,
 {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = (StatusCode, Json<Value>);
 
     async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
-        let Json(data) = req
-            .extract::<Json<T>, _>()
-            .await
-            .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid JSON body"))?;
-        data.validate()
-            .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid JSON body"))?;
+        // extract the JSON body
+        let Json(data) = req.extract::<Json<T>, _>().await.map_err(|_| {
+            let msg = format!("Error extracting the JSON body");
+            tracing::debug!(msg);
+            let res = json!({"success": false, "message": msg});
+            (StatusCode::BAD_REQUEST, Json(res))
+        })?;
+        // validate json body
+        data.validate().map_err(|err| {
+            let msg = format!("Error validating json body: {}", err);
+            tracing::debug!(msg);
+            let res = json!({"success": false, "message": msg});
+            (StatusCode::BAD_REQUEST, Json(res))
+        })?;
+        // return the validated body
         Ok(Self(data))
     }
 }
-
-// #[async_trait]
-// impl<'a, T, S, B> FromRequest<S, B> for ValidatedBody<T>
-// where
-//     B: Send + 'static,
-//     S: Send + Sync,
-//     // T: ValidateArgs<'a>,
-//     T: Validate + 'static,
-//     Json<T>: FromRequest<(), B>,
-// {
-//     type Rejection = (StatusCode, Json<Value>);
-
-//     async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-//         // extract the JSON body
-//         let Json(data) = req.extract::<Json<T>, _>().await.map_err(|_| {
-//             let msg = format!("Error extracting the JSON body");
-//             tracing::debug!(msg);
-//             let res = json!({"success": false, "message": msg});
-//             (StatusCode::BAD_REQUEST, Json(res))
-//         })?;
-//         // // validate JSON body
-//         // data.validate_args(state).map_err(|err| {
-//         //     let msg = format!("Error validating JSON body: {}", err);
-//         //     tracing::debug!(msg);
-//         //     let res = json!({"success": false, "message": msg});
-//         //     (StatusCode::BAD_REQUEST, Json(res))
-//         // })?;
-//         // return the validated body
-//         Ok(Self(data))
-//     }
-// }

@@ -86,27 +86,12 @@ pub async fn create_user_handler(
     State(client): State<Client>,
     ValidatedBody(body): ValidatedBody<CreateUserReqBody>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
-    let user_coll = &client.database(DB_NAME).collection::<Document>(COLL_USERS);
     // check if phone already exists in the DB
-    let check_ph_result = user_coll
-        .find_one(doc! {"phone": body.phone.as_str()}, None)
-        .await?;
-    if check_ph_result.is_some() {
-        return Ok((
-            StatusCode::BAD_REQUEST,
-            Json(json!({"success": false, "message": "User already exists with same phone"})),
-        ));
-    }
+    check_uniq_phone(&client, body.phone.as_str()).await?;
     // check if email already exists in the DB
     if body.email.is_some() {
         let email = body.email.unwrap();
-        let check_email_result = user_coll.find_one(doc! {"email": email}, None).await?;
-        if check_email_result.is_some() {
-            return Ok((
-                StatusCode::BAD_REQUEST,
-                Json(json!({"success": false, "message": "User already exists with same email"})),
-            ));
-        }
+        check_uniq_email(&client, &email).await?;
     }
 
     // let user_coll = &client
@@ -121,4 +106,30 @@ pub async fn create_user_handler(
         StatusCode::CREATED,
         Json(json!({"success": true, "message": "User created"})),
     ))
+}
+
+// check if the given phone already exists in users collection
+async fn check_uniq_phone(client: &Client, phone: &str) -> Result<(), AppError> {
+    let user_coll = &client.database(DB_NAME).collection::<Document>(COLL_USERS);
+    let check_ph_result = user_coll.find_one(doc! {"phone": phone}, None).await?;
+    if check_ph_result.is_some() {
+        return Err(AppError::BadRequestErr(
+            "User already exists with same phone: {phone}",
+        ));
+    }
+
+    Ok(())
+}
+
+// check if the given email already exists in the users collection
+async fn check_uniq_email(client: &Client, email: &str) -> Result<(), AppError> {
+    let user_coll = &client.database(DB_NAME).collection::<Document>(COLL_USERS);
+    let result = user_coll.find_one(doc! {"email": email}, None).await?;
+    if result.is_some() {
+        return Err(AppError::BadRequestErr(
+            "User already exists with same email: {email}",
+        ));
+    }
+
+    Ok(())
 }
