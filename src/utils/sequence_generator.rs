@@ -1,13 +1,12 @@
 use mongodb::{
     bson::{doc, Document},
     options::{FindOneAndUpdateOptions, ReturnDocument},
-    Client,
 };
 
-use crate::constants::*;
+use crate::{constants::*, database::DbInterface};
 
 /// Generates the next val for a given sequence id
-pub async fn get_seq_nxt_val(seq_id: &str, client: &Client) -> anyhow::Result<u32> {
+pub async fn get_seq_nxt_val(seq_id: &str, client: DbInterface) -> anyhow::Result<u32> {
     let coll = client
         .database(DB_NAME)
         .collection::<Document>(COLL_SEQUENCES);

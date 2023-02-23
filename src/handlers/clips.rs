@@ -11,7 +11,11 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{constants::*, utils::error_handler::AppError};
+use crate::{
+    constants::*,
+    database::{AppDB, DbInterface},
+    utils::error_handler::AppError,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipSchema {
@@ -56,7 +60,7 @@ pub struct Params {
 }
 
 pub async fn get_clips_handler(
-    State(client): State<Client>,
+    State(client): State<DbInterface>,
     params: Query<Params>,
 ) -> Result<Json<Response>, AppError> {
     // get the clips collection instance to query
@@ -117,4 +121,34 @@ async fn get_query_result(
         data.push(doc?);
     }
     Ok(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::database::MockAppDB;
+    use axum::http::StatusCode;
+    use axum::{body::Body, http::Request, routing::get, Router};
+    use mockall::predicate::*;
+    use mockall::*;
+    use tower::ServiceExt; // for `oneshot` and `ready`
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_create_user_handler() {
+        let mock_db = MockAppDB::new();
+        let mock_db = Arc::new(mock_db);
+        let app = Router::new()
+            .route("/", get(get_clips_handler))
+            .with_state(mock_db);
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+        mock_db
+            .expect_database()
+            .with(eq("treatviewers"))
+            .times(1)
+            .returning(|_| ());
+        app.oneshot(req).await.unwrap();
+    }
 }

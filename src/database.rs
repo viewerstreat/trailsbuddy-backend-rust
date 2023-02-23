@@ -1,25 +1,49 @@
+use crate::constants::*;
 use mongodb::error::Result as MongoResult;
 use mongodb::{options::ClientOptions, Client};
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use crate::constants::*;
+#[cfg(test)]
+use mockall::automock;
 
-pub async fn get_db() -> MongoResult<Client> {
-    // get all database parameters from environment
-    // when not found in environemtn it should panic
-    let uri = std::env::var("MONGODB_URI").expect("MONGODB_URI not found in .env file");
-    let min_pool = std::env::var("MONGODB_MIN_POOL_SIZE").unwrap_or_default();
-    let max_pool = std::env::var("MONGODB_MAX_POOL_SIZE").unwrap_or_default();
-    let min_pool = min_pool.parse::<u32>().unwrap_or(MONGO_MIN_POOL_SIZE);
-    let max_pool = max_pool.parse::<u32>().unwrap_or(MONGO_MAX_POOL_SIZE);
-    let timeout = Duration::from_secs(MONGO_CONN_TIMEOUT);
-    // create the mongodb client options
-    let mut client_options = ClientOptions::parse(uri).await?;
-    client_options.max_pool_size = Some(max_pool);
-    client_options.min_pool_size = Some(min_pool);
-    client_options.connect_timeout = Some(timeout);
-    // create the client and return Result object
-    Client::with_options(client_options)
+#[cfg_attr(test, automock)]
+pub trait AppDB {
+    fn database(&self, name: &str) -> mongodb::Database;
+}
+
+pub type DbInterface = Arc<dyn crate::database::AppDB + Send + Sync>;
+pub struct AppDBImpl(pub Client);
+
+impl AppDBImpl {
+    async fn new() -> MongoResult<Self> {
+        // get all database parameters from environment
+        // when not found in environemtn it should panic
+        let uri = std::env::var("MONGODB_URI").expect("MONGODB_URI not found in .env file");
+        let min_pool = std::env::var("MONGODB_MIN_POOL_SIZE").unwrap_or_default();
+        let max_pool = std::env::var("MONGODB_MAX_POOL_SIZE").unwrap_or_default();
+        let min_pool = min_pool.parse::<u32>().unwrap_or(MONGO_MIN_POOL_SIZE);
+        let max_pool = max_pool.parse::<u32>().unwrap_or(MONGO_MAX_POOL_SIZE);
+        let timeout = Duration::from_secs(MONGO_CONN_TIMEOUT);
+        // create the mongodb client options
+        let mut client_options = ClientOptions::parse(uri).await?;
+        client_options.max_pool_size = Some(max_pool);
+        client_options.min_pool_size = Some(min_pool);
+        client_options.connect_timeout = Some(timeout);
+        // create the client and return Result object
+        let client = Client::with_options(client_options)?;
+        let app_db_impl = Self(client);
+        Ok(app_db_impl)
+    }
+}
+
+impl AppDB for AppDBImpl {
+    fn database(&self, name: &str) -> mongodb::Database {
+        self.0.database(name)
+    }
+}
+
+pub async fn get_db() -> MongoResult<AppDBImpl> {
+    AppDBImpl::new().await
 }
 
 #[cfg(test)]

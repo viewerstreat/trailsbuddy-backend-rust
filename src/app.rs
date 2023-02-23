@@ -4,7 +4,7 @@ use axum::{
     routing::{get, post, IntoMakeService},
     Router,
 };
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use tower::ServiceBuilder;
 use tower_http::{
     cors::CorsLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer, trace::TraceLayer,
@@ -41,6 +41,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .into_inner();
     // create database client
     let db_client = get_db().await.expect("Unable to accquire database client");
+    let db_client = Arc::new(db_client);
     // create the app instance with all routes and middleware
     let app: Router<(), Body> = Router::new()
         .route("/", get(default_route_handler))

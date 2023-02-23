@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use axum::{extract::State, http::StatusCode, Json};
 use mongodb::{
@@ -10,6 +12,7 @@ use validator::Validate;
 
 use crate::{
     constants::*,
+    database::DbInterface,
     utils::{
         generate_otp, get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError, ValidatedBody,
     },
@@ -84,7 +87,7 @@ pub struct UserSchema {
 impl UserSchema {
     async fn from_create_user_req_body(
         body: &CreateUserReqBody,
-        client: &Client,
+        client: DbInterface,
     ) -> anyhow::Result<Self> {
         let id = get_seq_nxt_val(USER_ID_SEQ, client).await?;
         let mut user = Self::default();
@@ -119,25 +122,25 @@ pub struct CreateUserReqBody {
 }
 
 pub async fn create_user_handler(
-    State(client): State<Client>,
+    State(client): State<DbInterface>,
     ValidatedBody(body): ValidatedBody<CreateUserReqBody>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
     // check if phone already exists in the DB
-    check_uniq_phone(&client, body.phone.as_str()).await?;
+    check_uniq_phone(client.clone(), body.phone.as_str()).await?;
     // check if email already exists in the DB
     if let Some(email) = &body.email {
-        check_uniq_email(&client, email.as_str()).await?;
+        check_uniq_email(client.clone(), email.as_str()).await?;
     }
     // create typed collection for UserSchema
     let user_coll = client
         .database(DB_NAME)
         .collection::<UserSchema>(COLL_USERS);
     // get the user from body
-    let user = UserSchema::from_create_user_req_body(&body, &client).await?;
+    let user = UserSchema::from_create_user_req_body(&body, client.clone()).await?;
     // insert into database
     user_coll.insert_one(&user, None).await?;
     // generate and send otp to the phone
-    generate_send_otp(user.id, &client).await?;
+    generate_send_otp(user.id, client.clone()).await?;
     // return successful response
     Ok((
         StatusCode::CREATED,
@@ -146,7 +149,7 @@ pub async fn create_user_handler(
 }
 
 // check if the given phone already exists in users collection
-async fn check_uniq_phone(client: &Client, phone: &str) -> Result<(), AppError> {
+async fn check_uniq_phone(client: DbInterface, phone: &str) -> Result<(), AppError> {
     let user_coll = &client.database(DB_NAME).collection::<Document>(COLL_USERS);
     let check_ph_result = user_coll.find_one(doc! {"phone": phone}, None).await?;
     if check_ph_result.is_some() {
@@ -159,7 +162,7 @@ async fn check_uniq_phone(client: &Client, phone: &str) -> Result<(), AppError> 
 }
 
 // check if the given email already exists in the users collection
-async fn check_uniq_email(client: &Client, email: &str) -> Result<(), AppError> {
+async fn check_uniq_email(client: DbInterface, email: &str) -> Result<(), AppError> {
     let user_coll = &client.database(DB_NAME).collection::<Document>(COLL_USERS);
     let result = user_coll.find_one(doc! {"email": email}, None).await?;
     if result.is_some() {
@@ -172,9 +175,9 @@ async fn check_uniq_email(client: &Client, email: &str) -> Result<(), AppError> 
 }
 
 // Generate and send otp
-async fn generate_send_otp(user_id: u32, client: &Client) -> anyhow::Result<()> {
-    let database = &client.database(DB_NAME);
-    let user_coll = &database.collection::<Document>(COLL_USERS);
+async fn generate_send_otp(user_id: u32, client: DbInterface) -> anyhow::Result<()> {
+    let database = client.database(DB_NAME);
+    let user_coll = database.collection::<Document>(COLL_USERS);
     let f = doc! {"id": user_id};
     let user = user_coll
         .find_one(f, None)
@@ -204,7 +207,7 @@ impl OtpSchema {
         Self {
             user_id,
             otp: otp.to_string(),
-            valid_till: get_epoch_ts() + OTP_VALIDITY_MINS * 60 * 1000,
+            valid_till: get_epoch_ts() + OTP_VALIDITY_MINS * 60,
             is_used: false,
             update_ts: get_epoch_ts(),
         }
