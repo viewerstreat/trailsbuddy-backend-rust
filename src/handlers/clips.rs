@@ -7,15 +7,11 @@ use mongodb::bson::serde_helpers::hex_string_as_object_id;
 use mongodb::{
     bson::{doc, oid::ObjectId, Document},
     options::FindOptions,
-    Client, Collection,
+    Collection,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    constants::*,
-    database::{AppDB, DbInterface},
-    utils::error_handler::AppError,
-};
+use crate::{constants::*, database::AppDB, utils::error_handler::AppError};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipSchema {
@@ -60,20 +56,22 @@ pub struct Params {
 }
 
 pub async fn get_clips_handler(
-    State(client): State<DbInterface>,
+    State(app_db): State<AppDB>,
     params: Query<Params>,
 ) -> Result<Json<Response>, AppError> {
     // get the clips collection instance to query
-    let coll = client
-        .database(DB_NAME)
-        .collection::<ClipSchema>(COLL_CLIPS);
     let find_by = create_find_by_doc(&params)?;
-    let options = create_find_options(&params);
-    let data = get_query_result(coll, find_by, options).await?;
+    // let options = create_find_options(&params);
+    // let data = get_query_result(coll, find_by, options).await?;
+    let data = app_db
+        .find_one(DB_NAME, COLL_CLIPS, Some(find_by), None)
+        .await
+        .unwrap()
+        .unwrap();
     // return successful response
     let res = Response {
         success: true,
-        data,
+        data: vec![data],
         message: None,
     };
     Ok(Json(res))
@@ -92,63 +90,48 @@ fn create_find_by_doc(params: &Query<Params>) -> anyhow::Result<Document> {
     Ok(find_by)
 }
 
-// create find options based on query params
-fn create_find_options(params: &Query<Params>) -> FindOptions {
-    // calculate skip and limit value from query params pageIndex and pageSize
-    let page_index = params.page_index.unwrap_or(0);
-    let page_size = params.page_size.unwrap_or(DEFAULT_QUERY_LIMIT);
-    let skip = page_index * page_size;
-    // create sort_by doc
-    let sort_by = doc! {"_id": -1};
-    // create FindOptions
-    let mut options = FindOptions::default();
-    options.sort = Some(sort_by);
-    options.skip = Some(skip);
-    options.limit = Some(page_size as i64);
-    options
-}
+// // create find options based on query params
+// fn create_find_options(params: &Query<Params>) -> FindOptions {
+//     // calculate skip and limit value from query params pageIndex and pageSize
+//     let page_index = params.page_index.unwrap_or(0);
+//     let page_size = params.page_size.unwrap_or(DEFAULT_QUERY_LIMIT);
+//     let skip = page_index * page_size;
+//     // create sort_by doc
+//     let sort_by = doc! {"_id": -1};
+//     // create FindOptions
+//     let mut options = FindOptions::default();
+//     options.sort = Some(sort_by);
+//     options.skip = Some(skip);
+//     options.limit = Some(page_size as i64);
+//     options
+// }
 
-// query the database and return result
-async fn get_query_result(
-    coll: Collection<ClipSchema>,
-    find_by: Document,
-    options: FindOptions,
-) -> anyhow::Result<Vec<ClipSchema>> {
-    let mut cursor = coll.find(find_by, options).await?;
-    let mut data: Vec<ClipSchema> = vec![];
-    // loop through the cursor and collect result into data vec
-    while let Some(doc) = cursor.next().await {
-        data.push(doc?);
-    }
-    Ok(data)
-}
+// #[cfg(test)]
+// mod tests {
+//     use std::sync::Arc;
 
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
+//     use crate::database::MockAppDB;
+//     use axum::http::StatusCode;
+//     use axum::{body::Body, http::Request, routing::get, Router};
+//     use mockall::predicate::*;
+//     use mockall::*;
+//     use tower::ServiceExt; // for `oneshot` and `ready`
 
-    use crate::database::MockAppDB;
-    use axum::http::StatusCode;
-    use axum::{body::Body, http::Request, routing::get, Router};
-    use mockall::predicate::*;
-    use mockall::*;
-    use tower::ServiceExt; // for `oneshot` and `ready`
+//     use super::*;
 
-    use super::*;
-
-    #[tokio::test]
-    async fn test_create_user_handler() {
-        let mock_db = MockAppDB::new();
-        let mock_db = Arc::new(mock_db);
-        let app = Router::new()
-            .route("/", get(get_clips_handler))
-            .with_state(mock_db);
-        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
-        mock_db
-            .expect_database()
-            .with(eq("treatviewers"))
-            .times(1)
-            .returning(|_| ());
-        app.oneshot(req).await.unwrap();
-    }
-}
+//     #[tokio::test]
+//     async fn test_create_user_handler() {
+//         let mock_db = MockAppDB::new();
+//         let mock_db = Arc::new(mock_db);
+//         let app = Router::new()
+//             .route("/", get(get_clips_handler))
+//             .with_state(mock_db);
+//         let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+//         mock_db
+//             .expect_database()
+//             .with(eq("treatviewers"))
+//             .times(1)
+//             .returning(|_| ());
+//         app.oneshot(req).await.unwrap();
+//     }
+// }

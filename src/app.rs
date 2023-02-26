@@ -11,11 +11,13 @@ use tower_http::{
     ServiceBuilderExt,
 };
 
-use crate::database::get_db;
-use crate::handlers::{
-    clips::get_clips_handler, default::default_route_handler, global_404::global_404_handler,
+use crate::constants::REQUEST_TIMEOUT_SECS;
+use crate::{
+    database::AppDatabase,
+    handlers::{
+        clips::get_clips_handler, default::default_route_handler, global_404::global_404_handler,
+    },
 };
-use crate::{constants::REQUEST_TIMEOUT_SECS, handlers::user::create_user_handler};
 
 /// Initializes the app with all routes and middlewares
 pub async fn build() -> IntoMakeService<Router> {
@@ -40,13 +42,15 @@ pub async fn build() -> IntoMakeService<Router> {
         .compression()
         .into_inner();
     // create database client
-    let db_client = get_db().await.expect("Unable to accquire database client");
+    let db_client = AppDatabase::new()
+        .await
+        .expect("Unable to accquire database client");
     let db_client = Arc::new(db_client);
     // create the app instance with all routes and middleware
     let app: Router<(), Body> = Router::new()
         .route("/", get(default_route_handler))
         .route("/clip", get(get_clips_handler))
-        .route("/user", post(create_user_handler))
+        // .route("/user", post(create_user_handler))
         .layer(middleware)
         .fallback(global_404_handler)
         .with_state(db_client);

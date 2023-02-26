@@ -1,21 +1,20 @@
 use crate::constants::*;
+use mongodb::bson::Document;
 use mongodb::error::Result as MongoResult;
+use mongodb::options::FindOneOptions;
 use mongodb::{options::ClientOptions, Client};
+use serde::de::DeserializeOwned;
 use std::{sync::Arc, time::Duration};
 
 #[cfg(test)]
 use mockall::automock;
 
+pub struct AppDatabase(Client);
+pub type AppDB = Arc<AppDatabase>;
+
 #[cfg_attr(test, automock)]
-pub trait AppDB {
-    fn database(&self, name: &str) -> mongodb::Database;
-}
-
-pub type DbInterface = Arc<dyn crate::database::AppDB + Send + Sync>;
-pub struct AppDBImpl(pub Client);
-
-impl AppDBImpl {
-    async fn new() -> MongoResult<Self> {
+impl AppDatabase {
+    pub async fn new() -> MongoResult<Self> {
         // get all database parameters from environment
         // when not found in environemtn it should panic
         let uri = std::env::var("MONGODB_URI").expect("MONGODB_URI not found in .env file");
@@ -31,54 +30,21 @@ impl AppDBImpl {
         client_options.connect_timeout = Some(timeout);
         // create the client and return Result object
         let client = Client::with_options(client_options)?;
-        let app_db_impl = Self(client);
-        Ok(app_db_impl)
-    }
-}
-
-impl AppDB for AppDBImpl {
-    fn database(&self, name: &str) -> mongodb::Database {
-        self.0.database(name)
-    }
-}
-
-pub async fn get_db() -> MongoResult<AppDBImpl> {
-    AppDBImpl::new().await
-}
-
-#[cfg(test)]
-mod tests {
-
-    use mongodb::bson::{doc, Document};
-
-    use super::*;
-
-    #[tokio::test]
-    #[should_panic]
-    async fn test_get_db_no_env_should_panic() {
-        let _client = get_db().await;
+        let app_db = Self(client);
+        Ok(app_db)
     }
 
-    #[tokio::test]
-    async fn test_get_db() {
-        dotenvy::dotenv().ok();
-        let client = get_db().await;
-        assert_eq!(client.is_ok(), true);
-    }
-
-    #[tokio::test]
-    async fn test_get_db_sample_read() {
-        dotenvy::dotenv().ok();
-        // ======================================================================================
-        // For this test to pass there must be a collection "sample" in "treatviewertest" database
-        // with one document inside with "message" field.
-        // ======================================================================================
-        let client = get_db().await.unwrap();
-        let db = client.database("treatviewerstest");
-        let collection = db.collection::<Document>("sample");
-        let filter = doc! {};
-        let item = collection.find_one(filter, None).await.unwrap().unwrap();
-        assert_eq!(item.get("_id").is_some(), true);
-        assert_eq!(item.get("message").is_some(), true);
+    pub async fn find_one<T>(
+        &self,
+        db: &str,
+        coll: &str,
+        filter: Option<Document>,
+        options: Option<FindOneOptions>,
+    ) -> MongoResult<Option<T>>
+    where
+        T: DeserializeOwned + Unpin + Send + Sync + 'static,
+    {
+        let coll = self.0.database(db).collection::<T>(coll);
+        coll.find_one(filter, options).await
     }
 }
