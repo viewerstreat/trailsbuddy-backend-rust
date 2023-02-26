@@ -1,20 +1,24 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Query, State},
     Json,
 };
-use futures::stream::StreamExt;
+use mockall_double::double;
 use mongodb::bson::serde_helpers::hex_string_as_object_id;
 use mongodb::{
     bson::{doc, oid::ObjectId, Document},
     options::FindOptions,
-    Collection,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{constants::*, database::AppDB, utils::error_handler::AppError};
+use crate::{constants::*, utils::error_handler::AppError};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClipSchema {
+#[double]
+use crate::database::AppDatabase;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Clips {
     #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
     _id: String,
 
@@ -40,7 +44,7 @@ pub struct ClipSchema {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Response {
     success: bool,
-    data: Vec<ClipSchema>,
+    data: Vec<Clips>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<&'static str>,
@@ -56,22 +60,18 @@ pub struct Params {
 }
 
 pub async fn get_clips_handler(
-    State(app_db): State<AppDB>,
+    State(app_db): State<Arc<AppDatabase>>,
     params: Query<Params>,
 ) -> Result<Json<Response>, AppError> {
-    // get the clips collection instance to query
-    let find_by = create_find_by_doc(&params)?;
-    // let options = create_find_options(&params);
-    // let data = get_query_result(coll, find_by, options).await?;
+    let find_by = Some(create_find_by_doc(&params)?);
+    let options = Some(create_find_options(&params));
     let data = app_db
-        .find_one(DB_NAME, COLL_CLIPS, Some(find_by), None)
-        .await
-        .unwrap()
-        .unwrap();
+        .find::<Clips>(DB_NAME, COLL_CLIPS, find_by, options)
+        .await?;
     // return successful response
     let res = Response {
         success: true,
-        data: vec![data],
+        data,
         message: None,
     };
     Ok(Json(res))
@@ -90,48 +90,112 @@ fn create_find_by_doc(params: &Query<Params>) -> anyhow::Result<Document> {
     Ok(find_by)
 }
 
-// // create find options based on query params
-// fn create_find_options(params: &Query<Params>) -> FindOptions {
-//     // calculate skip and limit value from query params pageIndex and pageSize
-//     let page_index = params.page_index.unwrap_or(0);
-//     let page_size = params.page_size.unwrap_or(DEFAULT_QUERY_LIMIT);
-//     let skip = page_index * page_size;
-//     // create sort_by doc
-//     let sort_by = doc! {"_id": -1};
-//     // create FindOptions
-//     let mut options = FindOptions::default();
-//     options.sort = Some(sort_by);
-//     options.skip = Some(skip);
-//     options.limit = Some(page_size as i64);
-//     options
-// }
+// create find options based on query params
+fn create_find_options(params: &Query<Params>) -> FindOptions {
+    // calculate skip and limit value from query params pageIndex and pageSize
+    let page_index = params.page_index.unwrap_or(0);
+    let page_size = params.page_size.unwrap_or(DEFAULT_QUERY_LIMIT);
+    let skip = page_index * page_size;
+    // create sort_by doc
+    let sort_by = doc! {"_id": -1};
+    // create FindOptions
+    let mut options = FindOptions::default();
+    options.sort = Some(sort_by);
+    options.skip = Some(skip);
+    options.limit = Some(page_size as i64);
+    options
+}
 
-// #[cfg(test)]
-// mod tests {
-//     use std::sync::Arc;
+#[cfg(test)]
+mod tests {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+        routing::get,
+        Router,
+    };
+    use mockall::predicate::{eq, function};
+    use mongodb::{bson::doc, options::FindOptions};
+    use tower::ServiceExt;
 
-//     use crate::database::MockAppDB;
-//     use axum::http::StatusCode;
-//     use axum::{body::Body, http::Request, routing::get, Router};
-//     use mockall::predicate::*;
-//     use mockall::*;
-//     use tower::ServiceExt; // for `oneshot` and `ready`
+    use super::*;
 
-//     use super::*;
+    fn get_clips() -> Vec<Clips> {
+        let mut clips = vec![];
+        let clip = Clips {
+            _id: ObjectId::new().to_hex(),
+            name: Some("Clip 1".to_string()),
+            description: None,
+            banner_image_url: None,
+            video_url: None,
+            view_count: Some(0),
+            like_count: Some(0),
+            is_active: true,
+        };
+        clips.push(clip);
+        let clip = Clips {
+            _id: ObjectId::new().to_hex(),
+            name: Some("Clip 1".to_string()),
+            description: None,
+            banner_image_url: None,
+            video_url: None,
+            view_count: Some(0),
+            like_count: Some(0),
+            is_active: true,
+        };
+        clips.push(clip);
 
-//     #[tokio::test]
-//     async fn test_create_user_handler() {
-//         let mock_db = MockAppDB::new();
-//         let mock_db = Arc::new(mock_db);
-//         let app = Router::new()
-//             .route("/", get(get_clips_handler))
-//             .with_state(mock_db);
-//         let req = Request::builder().uri("/").body(Body::empty()).unwrap();
-//         mock_db
-//             .expect_database()
-//             .with(eq("treatviewers"))
-//             .times(1)
-//             .returning(|_| ());
-//         app.oneshot(req).await.unwrap();
-//     }
-// }
+        clips
+    }
+
+    #[tokio::test]
+    async fn test_get_clips_handler() {
+        let clips = get_clips();
+        let filter = Some(doc! {"isActive": true});
+        let check_options = function(|options: &Option<FindOptions>| {
+            options
+                .as_ref()
+                .and_then(|option| {
+                    option
+                        .sort
+                        .as_ref()
+                        .and_then(|sort| {
+                            if sort.iter().count() > 1 {
+                                return None;
+                            }
+                            sort.get_i32("_id").ok().and_then(|val| {
+                                if val == -1 {
+                                    Some(())
+                                } else {
+                                    None
+                                }
+                            })
+                        })
+                        .and(option.limit)
+                        .and_then(|limit| {
+                            if limit == DEFAULT_QUERY_LIMIT as i64 {
+                                Some(())
+                            } else {
+                                None
+                            }
+                        })
+                        .and(option.skip)
+                        .and_then(|skip| if skip == 0 { Some(()) } else { None })
+                })
+                .is_some()
+        });
+        let mut mock_db = AppDatabase::default();
+        mock_db
+            .expect_find::<Clips>()
+            .with(eq(DB_NAME), eq(COLL_CLIPS), eq(filter), check_options)
+            .times(1)
+            .returning(move |_, _, _, _| Ok(clips.clone()));
+        let db = Arc::new(mock_db);
+        let app = Router::new()
+            .route("/", get(get_clips_handler))
+            .with_state(db);
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+}

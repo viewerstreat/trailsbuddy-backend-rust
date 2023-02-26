@@ -1,16 +1,16 @@
 use crate::constants::*;
+use futures::stream::StreamExt;
 use mongodb::bson::Document;
 use mongodb::error::Result as MongoResult;
-use mongodb::options::FindOneOptions;
+use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::{options::ClientOptions, Client};
 use serde::de::DeserializeOwned;
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 #[cfg(test)]
 use mockall::automock;
 
 pub struct AppDatabase(Client);
-pub type AppDB = Arc<AppDatabase>;
 
 #[cfg_attr(test, automock)]
 impl AppDatabase {
@@ -46,5 +46,24 @@ impl AppDatabase {
     {
         let coll = self.0.database(db).collection::<T>(coll);
         coll.find_one(filter, options).await
+    }
+
+    pub async fn find<T>(
+        &self,
+        db: &str,
+        coll: &str,
+        filter: Option<Document>,
+        options: Option<FindOptions>,
+    ) -> MongoResult<Vec<T>>
+    where
+        T: DeserializeOwned + Unpin + Send + Sync + 'static,
+    {
+        let coll = self.0.database(db).collection::<T>(coll);
+        let mut cursor = coll.find(filter, options).await?;
+        let mut data = vec![];
+        while let Some(doc) = cursor.next().await {
+            data.push(doc?);
+        }
+        Ok(data)
     }
 }
