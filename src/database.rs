@@ -2,7 +2,7 @@ use crate::constants::*;
 use futures::stream::StreamExt;
 use mongodb::bson::Document;
 use mongodb::error::Result as MongoResult;
-use mongodb::options::{FindOneOptions, FindOptions};
+use mongodb::options::{FindOneAndUpdateOptions, FindOneOptions, FindOptions};
 use mongodb::{options::ClientOptions, Client};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -65,5 +65,20 @@ impl AppDatabase {
             data.push(doc?);
         }
         Ok(data)
+    }
+
+    pub async fn find_one_and_update<T>(
+        &self,
+        db: &str,
+        coll: &str,
+        filter: Document,
+        update: Document,
+        options: Option<FindOneAndUpdateOptions>,
+    ) -> MongoResult<Option<T>>
+    where
+        T: DeserializeOwned + Send + Sync + 'static,
+    {
+        let coll = self.0.database(db).collection::<T>(coll);
+        coll.find_one_and_update(filter, update, options).await
     }
 }
