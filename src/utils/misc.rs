@@ -19,3 +19,42 @@ pub fn generate_otp(len: u32) -> String {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+
+    use std::{thread, time::Duration};
+
+    use super::*;
+
+    #[test]
+    fn test_get_epoch_ts() {
+        let d = Duration::from_secs(1);
+        let t1 = get_epoch_ts();
+        thread::sleep(d);
+        let t2 = get_epoch_ts();
+        assert_eq!(t1 > 0, true);
+        assert_eq!(t2 > 0, true);
+        assert_eq!(t1 + 1 <= t2, true);
+    }
+
+    #[test]
+    fn test_generate_otp_zero_len() {
+        let otp = generate_otp(0);
+        assert_eq!(otp, String::new());
+    }
+
+    #[test]
+    fn test_generate_otp_six_len() {
+        let otp = generate_otp(6);
+        assert_eq!(otp.len(), 6);
+        assert_eq!(otp.chars().all(|ch| ch.is_ascii_digit()), true);
+    }
+
+    #[test]
+    fn test_generate_otp_random() {
+        let otp1 = generate_otp(6);
+        let otp2 = generate_otp(6);
+        assert_ne!(otp1, otp2);
+    }
+}
