@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use validator::Validate;
 
+use super::model::User;
 use crate::{
     constants::*,
     utils::{get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError, ValidatedBody},
@@ -16,13 +17,10 @@ use crate::{
 use crate::database::AppDatabase;
 
 #[double]
-use crate::utils::misc_outer::misc_inner;
+use super::helper::helper_inner;
 
-use super::{model::User, otp::generate_send_otp};
-
-fn call_add_one(n: u32) -> u32 {
-    misc_inner::add_one(n)
-}
+#[double]
+use super::otp::otp_inner;
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct CreateUserReq {
@@ -64,16 +62,16 @@ pub async fn create_user_handler(
     ValidatedBody(body): ValidatedBody<CreateUserReq>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
     // check if phone already exists in the DB
-    check_uniq_phone(&db, body.phone.as_str()).await?;
+    helper_inner::check_uniq_phone(&db, body.phone.as_str()).await?;
     // check if email already exists in the DB
     if let Some(email) = &body.email {
-        check_uniq_email(&db, email.as_str()).await?;
+        helper_inner::check_uniq_email(&db, email.as_str()).await?;
     }
     let user = body.create_user(&db).await?;
     db.insert_one::<User>(DB_NAME, COLL_USERS, &user, None)
         .await?;
     // generate and send otp to the phone
-    generate_send_otp(user.id, &db).await?;
+    otp_inner::generate_send_otp(user.id, &db).await?;
     // return successful response
     let response = (
         StatusCode::CREATED,
@@ -82,41 +80,10 @@ pub async fn create_user_handler(
     Ok(response)
 }
 
-// check if the given phone already exists in users collection
-async fn check_uniq_phone(db: &Arc<AppDatabase>, phone: &str) -> Result<(), AppError> {
-    let filter = Some(doc! {"phone": phone});
-    let result = db
-        .find_one::<Document>(DB_NAME, COLL_USERS, filter, None)
-        .await?;
-    if result.is_some() {
-        let err = format!("User already exists with same phone: {}", phone);
-        let err = AppError::BadRequestErr(err);
-        return Err(err);
-    }
-
-    Ok(())
-}
-
-// check if the given email already exists in the users collection
-async fn check_uniq_email(db: &Arc<AppDatabase>, email: &str) -> Result<(), AppError> {
-    let filter = Some(doc! {"email": email});
-    let result = db
-        .find_one::<Document>(DB_NAME, COLL_USERS, filter, None)
-        .await?;
-    if result.is_some() {
-        let err = format!("User already exists with same email: {}", email);
-        let err = AppError::BadRequestErr(err);
-        return Err(err);
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use axum::{body::Body, http::Request, routing::post, Router};
     use mockall::predicate::{eq, function};
-    use mongodb::options::FindOneOptions;
     use tower::ServiceExt;
 
     use super::*;
@@ -127,82 +94,6 @@ mod tests {
             phone: "1234567890".to_string(),
             email: Some("testemail@internet.org".to_string()),
             profile_pic: None,
-        }
-    }
-
-    #[tokio::test]
-    async fn test_check_uniq_phone() {
-        let phone = "1234567890";
-        let filter = Some(doc! {"phone": phone});
-        let check_none = function(|options: &Option<FindOneOptions>| options.is_none());
-        let mut mock_db = AppDatabase::default();
-        mock_db
-            .expect_find_one::<Document>()
-            .with(eq(DB_NAME), eq(COLL_USERS), eq(filter), check_none)
-            .times(1)
-            .returning(|_, _, _, _| Ok(None));
-        let db = Arc::new(mock_db);
-        let _ = check_uniq_phone(&db, phone).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_check_uniq_phone_exists() {
-        let phone = "1234567890";
-        let filter = Some(doc! {"phone": phone});
-        let check_none = function(|options: &Option<FindOneOptions>| options.is_none());
-        let mut mock_db = AppDatabase::default();
-        mock_db
-            .expect_find_one::<Document>()
-            .with(eq(DB_NAME), eq(COLL_USERS), eq(filter), check_none)
-            .times(1)
-            .returning(|_, _, _, _| Ok(Some(doc! {"id": 1})));
-        let db = Arc::new(mock_db);
-        let result = check_uniq_phone(&db, phone).await;
-        assert_eq!(result.is_err(), true);
-        let msg = format!("User already exists with same phone: {}", phone);
-        let result = result.err().unwrap();
-        if let AppError::BadRequestErr(err) = result {
-            assert_eq!(err, msg);
-        } else {
-            panic!("AppError::BadRequestErr should be received");
-        }
-    }
-
-    #[tokio::test]
-    async fn test_check_uniq_email() {
-        let email = "testemail@email.com";
-        let filter = Some(doc! {"email": email});
-        let check_none = function(|options: &Option<FindOneOptions>| options.is_none());
-        let mut mock_db = AppDatabase::default();
-        mock_db
-            .expect_find_one::<Document>()
-            .with(eq(DB_NAME), eq(COLL_USERS), eq(filter), check_none)
-            .times(1)
-            .returning(|_, _, _, _| Ok(None));
-        let db = Arc::new(mock_db);
-        let _ = check_uniq_email(&db, email).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_check_uniq_email_exists() {
-        let email = "testemail@email.com";
-        let filter = Some(doc! {"email": email});
-        let check_none = function(|options: &Option<FindOneOptions>| options.is_none());
-        let mut mock_db = AppDatabase::default();
-        mock_db
-            .expect_find_one::<Document>()
-            .with(eq(DB_NAME), eq(COLL_USERS), eq(filter), check_none)
-            .times(1)
-            .returning(|_, _, _, _| Ok(Some(doc! {"id": 1})));
-        let db = Arc::new(mock_db);
-        let result = check_uniq_email(&db, email).await;
-        assert_eq!(result.is_err(), true);
-        let msg = format!("User already exists with same email: {}", email);
-        let result = result.err().unwrap();
-        if let AppError::BadRequestErr(err) = result {
-            assert_eq!(err, msg);
-        } else {
-            panic!("AppError::BadRequestErr should be received");
         }
     }
 
@@ -327,12 +218,5 @@ mod tests {
             let response: Response = serde_json::from_slice(&bd).unwrap();
             assert_eq!(response.success, false);
         }
-    }
-
-    #[test]
-    fn test_call_add_one() {
-        let ctx = misc_inner::add_one_context();
-        ctx.expect().with(eq(5)).times(1).returning(|_| 2);
-        assert_eq!(call_add_one(5), 2);
     }
 }

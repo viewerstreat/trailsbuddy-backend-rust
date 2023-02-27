@@ -1,13 +1,13 @@
-use std::sync::Arc;
-
 use mockall_double::double;
 use mongodb::bson::doc;
 use serde::Serialize;
+use std::sync::Arc;
 
 use crate::{
     constants::*,
     utils::{generate_otp, get_epoch_ts},
 };
+use otp_inner::generate_send_otp;
 
 #[double]
 use crate::database::AppDatabase;
@@ -37,23 +37,31 @@ impl Otp {
     }
 }
 
-// Generate and send otp
-pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<()> {
-    let f = Some(doc! {"id": user_id});
-    let user = db
-        .find_one::<User>(DB_NAME, COLL_USERS, f, None)
-        .await?
-        .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
-    let otp = generate_otp(OTP_LENGTH);
-    let otp = Otp::new(user_id, otp.as_str());
-    db.insert_one::<Otp>(DB_NAME, COLL_OTP, &otp, None).await?;
-    send_otp(&user.phone, &otp.otp);
-    Ok(())
-}
+#[cfg(test)]
+use mockall::automock;
 
-// send otp to a given phone. SMS gateway API or SMS queue API to be called from here
-pub fn send_otp(phone: &str, otp: &str) {
-    tracing::debug!("Send otp {otp} to phone {phone}");
+#[cfg_attr(test, automock)]
+pub mod otp_inner {
+    use super::*;
+
+    // Generate and send otp
+    pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<()> {
+        let f = Some(doc! {"id": user_id});
+        let user = db
+            .find_one::<User>(DB_NAME, COLL_USERS, f, None)
+            .await?
+            .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
+        let otp = generate_otp(OTP_LENGTH);
+        let otp = Otp::new(user_id, otp.as_str());
+        db.insert_one::<Otp>(DB_NAME, COLL_OTP, &otp, None).await?;
+        send_otp(&user.phone, &otp.otp);
+        Ok(())
+    }
+
+    // send otp to a given phone. SMS gateway API or SMS queue API to be called from here
+    pub fn send_otp(phone: &str, otp: &str) {
+        tracing::debug!("Send otp {otp} to phone {phone}");
+    }
 }
 
 #[cfg(test)]
