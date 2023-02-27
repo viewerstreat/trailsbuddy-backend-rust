@@ -12,9 +12,12 @@ use tower_http::{
     ServiceBuilderExt,
 };
 
-use crate::constants::REQUEST_TIMEOUT_SECS;
-use crate::handlers::{
-    clips::get_clips_handler, default::default_route_handler, global_404::global_404_handler,
+use crate::{
+    constants::REQUEST_TIMEOUT_SECS,
+    handlers::{
+        clips::get_clips_handler, default::default_route_handler, global_404::global_404_handler,
+        user::create::create_user_handler,
+    },
 };
 
 #[double]
@@ -51,7 +54,7 @@ pub async fn build() -> IntoMakeService<Router> {
     let app: Router<(), Body> = Router::new()
         .route("/", get(default_route_handler))
         .route("/clip", get(get_clips_handler))
-        // .route("/user", post(create_user_handler))
+        .route("/user", post(create_user_handler))
         .layer(middleware)
         .fallback(global_404_handler)
         .with_state(db_client);

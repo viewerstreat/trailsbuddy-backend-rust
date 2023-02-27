@@ -59,3 +59,46 @@ where
         Ok(Self(data))
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_validate_phonenumber() {
+        let result = validate_phonenumber("");
+        let result = result.err().unwrap();
+        assert_eq!(result.code, "phone");
+        assert_eq!(
+            result.message,
+            Some("Phone must be 10 digits. Invalid phone received: ".into())
+        );
+
+        let result = validate_phonenumber("1234");
+        let result = result.err().unwrap();
+        assert_eq!(result.code, "phone");
+        assert_eq!(
+            result.message,
+            Some("Phone must be 10 digits. Invalid phone received: 1234".into())
+        );
+        let result = validate_phonenumber("123456789012");
+        let result = result.err().unwrap();
+        assert_eq!(result.code, "phone");
+        assert_eq!(
+            result.message,
+            Some("Phone must be 10 digits. Invalid phone received: 123456789012".into())
+        );
+
+        let result = validate_phonenumber("abcdefghij");
+        let result = result.err().unwrap();
+        assert_eq!(result.code, "phone");
+        assert_eq!(
+            result.message,
+            Some("Phone must be all digits. Invalid phone received: abcdefghij".into())
+        );
+
+        let result = validate_phonenumber("1234567890");
+        assert_eq!(result.is_ok(), true);
+    }
+}
