@@ -60,12 +60,12 @@ pub struct Params {
 }
 
 pub async fn get_clips_handler(
-    State(app_db): State<Arc<AppDatabase>>,
+    State(db): State<Arc<AppDatabase>>,
     params: Query<Params>,
 ) -> Result<Json<Response>, AppError> {
     let find_by = Some(create_find_by_doc(&params)?);
     let options = Some(create_find_options(&params));
-    let data = app_db
+    let data = db
         .find::<Clips>(DB_NAME, COLL_CLIPS, find_by, options)
         .await?;
     // return successful response
