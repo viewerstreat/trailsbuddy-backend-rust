@@ -153,18 +153,20 @@ async fn check_uniq_phone(db: &Arc<AppDatabase>, phone: &str) -> Result<(), AppE
     Ok(())
 }
 
-// // check if the given email already exists in the users collection
-// async fn check_uniq_email(client: DbInterface, email: &str) -> Result<(), AppError> {
-//     let user_coll = &client.database(DB_NAME).collection::<Document>(COLL_USERS);
-//     let result = user_coll.find_one(doc! {"email": email}, None).await?;
-//     if result.is_some() {
-//         return Err(AppError::BadRequestErr(
-//             "User already exists with same email",
-//         ));
-//     }
+// check if the given email already exists in the users collection
+async fn check_uniq_email(db: &Arc<AppDatabase>, email: &str) -> Result<(), AppError> {
+    let filter = Some(doc! {"email": email});
+    let result = db
+        .find_one::<Document>(DB_NAME, COLL_USERS, filter, None)
+        .await?;
+    if result.is_some() {
+        let err = format!("User already exists with same email: {}", email);
+        let err = AppError::BadRequestErr(err);
+        return Err(err);
+    }
 
-//     Ok(())
-// }
+    Ok(())
+}
 
 // // Generate and send otp
 // async fn generate_send_otp(user_id: u32, client: DbInterface) -> anyhow::Result<()> {
@@ -247,6 +249,44 @@ mod tests {
         let result = check_uniq_phone(&db, phone).await;
         assert_eq!(result.is_err(), true);
         let msg = format!("User already exists with same phone: {}", phone);
+        let result = result.err().unwrap();
+        if let AppError::BadRequestErr(err) = result {
+            assert_eq!(err, msg);
+        } else {
+            panic!("AppError::BadRequestErr should be received");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_check_uniq_email() {
+        let email = "testemail@email.com";
+        let filter = Some(doc! {"email": email});
+        let check_none = function(|options: &Option<FindOneOptions>| options.is_none());
+        let mut mock_db = AppDatabase::default();
+        mock_db
+            .expect_find_one::<Document>()
+            .with(eq(DB_NAME), eq(COLL_USERS), eq(filter), check_none)
+            .times(1)
+            .returning(|_, _, _, _| Ok(None));
+        let db = Arc::new(mock_db);
+        let _ = check_uniq_email(&db, email).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_check_uniq_email_exists() {
+        let email = "testemail@email.com";
+        let filter = Some(doc! {"email": email});
+        let check_none = function(|options: &Option<FindOneOptions>| options.is_none());
+        let mut mock_db = AppDatabase::default();
+        mock_db
+            .expect_find_one::<Document>()
+            .with(eq(DB_NAME), eq(COLL_USERS), eq(filter), check_none)
+            .times(1)
+            .returning(|_, _, _, _| Ok(Some(doc! {"id": 1})));
+        let db = Arc::new(mock_db);
+        let result = check_uniq_email(&db, email).await;
+        assert_eq!(result.is_err(), true);
+        let msg = format!("User already exists with same email: {}", email);
         let result = result.err().unwrap();
         if let AppError::BadRequestErr(err) = result {
             assert_eq!(err, msg);
