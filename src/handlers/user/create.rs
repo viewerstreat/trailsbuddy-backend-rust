@@ -15,7 +15,14 @@ use crate::{
 #[double]
 use crate::database::AppDatabase;
 
+#[double]
+use crate::utils::misc_outer::misc_inner;
+
 use super::{model::User, otp::generate_send_otp};
+
+fn call_add_one(n: u32) -> u32 {
+    misc_inner::add_one(n)
+}
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct CreateUserReq {
@@ -320,5 +327,12 @@ mod tests {
             let response: Response = serde_json::from_slice(&bd).unwrap();
             assert_eq!(response.success, false);
         }
+    }
+
+    #[test]
+    fn test_call_add_one() {
+        let ctx = misc_inner::add_one_context();
+        ctx.expect().with(eq(5)).times(1).returning(|_| 2);
+        assert_eq!(call_add_one(5), 2);
     }
 }
