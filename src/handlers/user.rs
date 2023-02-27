@@ -74,6 +74,16 @@ pub struct User {
     updated_ts: Option<u64>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Otp {
+    user_id: u32,
+    otp: String,
+    valid_till: u64,
+    is_used: bool,
+    update_ts: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct CreateUserReq {
     #[validate(length(min = 1, max = 50))]
@@ -110,6 +120,19 @@ pub struct CreateUserReq {
 //         Ok(user)
 //     }
 // }
+
+impl Otp {
+    fn new(user_id: u32, otp: &str) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            user_id,
+            otp: otp.to_string(),
+            valid_till: ts + OTP_VALIDITY_MINS * 60,
+            is_used: false,
+            update_ts: ts,
+        }
+    }
+}
 
 // pub async fn create_user_handler(
 //     State(client): State<DbInterface>,
@@ -168,49 +191,25 @@ async fn check_uniq_email(db: &Arc<AppDatabase>, email: &str) -> Result<(), AppE
     Ok(())
 }
 
-// // Generate and send otp
-// async fn generate_send_otp(user_id: u32, client: DbInterface) -> anyhow::Result<()> {
-//     let database = client.database(DB_NAME);
-//     let user_coll = database.collection::<Document>(COLL_USERS);
-//     let f = doc! {"id": user_id};
-//     let user = user_coll
-//         .find_one(f, None)
+// Generate and send otp
+// async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<()> {
+//     let f = Some(doc! {"id": user_id});
+//     let user = db
+//         .find_one::<User>(DB_NAME, COLL_USERS, f, None)
 //         .await?
 //         .ok_or(anyhow!("User not found with id: {user_id}"))?;
-//     let phone = user.get_str("phone")?;
 //     let otp = generate_otp(OTP_LENGTH);
-//     let data = OtpSchema::new(user_id, otp.as_str());
-//     let otp_coll = &database.collection::<OtpSchema>(COLL_OTP);
+//     let data = Otp::new(user_id, otp.as_str());
+//     let otp_coll = &database.collection::<Otp>(COLL_OTP);
 //     otp_coll.insert_one(data, None).await?;
 //     send_otp(phone, &otp);
 //     Ok(())
 // }
 
-// #[derive(Debug, Serialize)]
-// #[serde(rename_all = "camelCase")]
-// struct OtpSchema {
-//     user_id: u32,
-//     otp: String,
-//     valid_till: u64,
-//     is_used: bool,
-//     update_ts: u64,
-// }
-
-// impl OtpSchema {
-//     fn new(user_id: u32, otp: &str) -> Self {
-//         Self {
-//             user_id,
-//             otp: otp.to_string(),
-//             valid_till: get_epoch_ts() + OTP_VALIDITY_MINS * 60,
-//             is_used: false,
-//             update_ts: get_epoch_ts(),
-//         }
-//     }
-// }
-
-// fn send_otp(phone: &str, otp: &str) {
-//     tracing::debug!("Send otp {otp} to phone {phone}");
-// }
+// send otp to a given phone. SMS gateway API or SMS queue API to be called from here
+fn send_otp(phone: &str, otp: &str) {
+    tracing::debug!("Send otp {otp} to phone {phone}");
+}
 
 #[cfg(test)]
 mod tests {
@@ -293,5 +292,22 @@ mod tests {
         } else {
             panic!("AppError::BadRequestErr should be received");
         }
+    }
+}
+
+#[cfg(test)]
+mod otp_tests {
+
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let user_id = 1;
+        let otp_val = "887797";
+        let otp = Otp::new(user_id, otp_val);
+        assert_eq!(otp.user_id, user_id);
+        assert_eq!(otp.otp, otp_val);
+        assert_eq!(otp.valid_till, otp.update_ts + OTP_VALIDITY_MINS * 60);
+        assert_eq!(otp.is_used, false);
     }
 }

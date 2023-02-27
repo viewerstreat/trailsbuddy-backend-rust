@@ -1,10 +1,11 @@
 use crate::constants::*;
 use futures::stream::StreamExt;
-use mongodb::bson::Document;
+use mongodb::bson::{Bson, Document};
 use mongodb::error::Result as MongoResult;
-use mongodb::options::{FindOneAndUpdateOptions, FindOneOptions, FindOptions};
+use mongodb::options::{FindOneAndUpdateOptions, FindOneOptions, FindOptions, InsertOneOptions};
 use mongodb::{options::ClientOptions, Client};
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::time::Duration;
 
 #[cfg(test)]
@@ -80,5 +81,25 @@ impl AppDatabase {
     {
         let coll = self.0.database(db).collection::<T>(coll);
         coll.find_one_and_update(filter, update, options).await
+    }
+
+    pub async fn insert_one<T>(
+        &self,
+        db: &str,
+        coll: &str,
+        doc: &T,
+        options: Option<InsertOneOptions>,
+    ) -> anyhow::Result<String>
+    where
+        T: Serialize + 'static,
+    {
+        let collection = self.0.database(db).collection::<T>(coll);
+        let result = collection.insert_one(doc, options).await?;
+        if let Bson::ObjectId(oid) = result.inserted_id {
+            return Ok(oid.to_hex());
+        }
+
+        let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
+        Err(err)
     }
 }
