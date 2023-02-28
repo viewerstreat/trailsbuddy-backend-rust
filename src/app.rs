@@ -15,8 +15,10 @@ use tower_http::{
 use crate::{
     constants::REQUEST_TIMEOUT_SECS,
     handlers::{
-        clips::get_clips_handler, default::default_route_handler, global_404::global_404_handler,
-        user::create::create_user_handler,
+        clips::get_clips_handler,
+        default::default_route_handler,
+        global_404::global_404_handler,
+        user::{check_otp::check_otp_handler, create::create_user_handler},
     },
 };
 
@@ -51,7 +53,9 @@ pub async fn build() -> IntoMakeService<Router> {
         .expect("Unable to accquire database client");
     let db_client = Arc::new(db_client);
 
-    let user_route = Router::new().route("/create", post(create_user_handler));
+    let user_route = Router::new()
+        .route("/create", post(create_user_handler))
+        .route("/checkOtp", get(check_otp_handler));
     let clip_route = Router::new().route("/", get(get_clips_handler));
 
     let api_route = Router::new()

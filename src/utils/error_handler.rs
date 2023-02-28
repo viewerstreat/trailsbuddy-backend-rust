@@ -8,6 +8,7 @@ use serde_json::json;
 #[derive(Debug)]
 pub enum AppError {
     BadRequestErr(String),
+    NotFound(String),
     AnyError(anyhow::Error),
 }
 
@@ -24,6 +25,12 @@ impl IntoResponse for AppError {
                 tracing::debug!("Bad request: {}", msg);
                 let json_val = json!({"success": false, "message": msg});
                 let res = (StatusCode::BAD_REQUEST, Json(json_val));
+                res.into_response()
+            }
+            Self::NotFound(msg) => {
+                tracing::debug!("Not Found: {}", msg);
+                let json_val = json!({"success": false, "message": msg});
+                let res = (StatusCode::NOT_FOUND, Json(json_val));
                 res.into_response()
             }
             Self::AnyError(err) => {

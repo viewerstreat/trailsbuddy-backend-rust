@@ -79,6 +79,13 @@ pub async fn create_user_handler(
     Ok(response)
 }
 
+/**
+*
+*
+*
+*
+*/
+
 #[cfg(test)]
 mod tests {
     use axum::{body::Body, http::Request, routing::post, Router};
@@ -124,6 +131,11 @@ mod tests {
         assert_eq!(user.phone, create_user_req.phone);
         assert_eq!(user.email, create_user_req.email);
         assert_eq!(user.profile_pic, create_user_req.profile_pic);
+        assert_eq!(user.is_active, true);
+        assert_eq!(user.contest_won, Some(0));
+        assert_eq!(user.total_played, Some(0));
+        assert_eq!(user.total_earning, Some(0));
+        assert_eq!(user.created_ts.is_some(), true);
     }
 
     #[derive(Debug, Deserialize)]

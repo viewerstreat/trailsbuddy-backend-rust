@@ -2,7 +2,9 @@ use crate::constants::*;
 use futures::stream::StreamExt;
 use mongodb::bson::{Bson, Document};
 use mongodb::error::Result as MongoResult;
-use mongodb::options::{FindOneAndUpdateOptions, FindOneOptions, FindOptions, InsertOneOptions};
+use mongodb::options::{
+    FindOneAndUpdateOptions, FindOneOptions, FindOptions, InsertOneOptions, UpdateOptions,
+};
 use mongodb::{options::ClientOptions, Client};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -12,6 +14,13 @@ use std::time::Duration;
 use mockall::automock;
 
 pub struct AppDatabase(Client);
+
+#[derive(Debug)]
+pub struct UpdateResult {
+    pub matched_count: u64,
+    pub modified_count: u64,
+    pub upserted_id: Option<String>,
+}
 
 #[cfg_attr(test, automock)]
 impl AppDatabase {
@@ -101,5 +110,33 @@ impl AppDatabase {
 
         let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
         Err(err)
+    }
+
+    pub async fn update_one(
+        &self,
+        db: &str,
+        coll: &str,
+        query: Document,
+        update: Document,
+        options: Option<UpdateOptions>,
+    ) -> anyhow::Result<UpdateResult> {
+        let collection = self.0.database(db).collection::<Document>(coll);
+        let result = collection.update_one(query, update, options).await?;
+        let upserted_id = match result.upserted_id {
+            None => None,
+            Some(uid) => {
+                let Bson::ObjectId(oid) = uid else {
+                let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
+                    return Err (err);
+                };
+                Some(oid.to_hex())
+            }
+        };
+        let update_result = UpdateResult {
+            modified_count: result.modified_count,
+            matched_count: result.matched_count,
+            upserted_id,
+        };
+        Ok(update_result)
     }
 }
