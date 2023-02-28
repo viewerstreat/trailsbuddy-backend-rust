@@ -16,7 +16,11 @@ pub mod helper_inner {
 
     #[double]
     use crate::database::AppDatabase;
-    use crate::{constants::*, utils::AppError};
+    use crate::{
+        constants::*,
+        handlers::user::model::LoginScheme,
+        utils::{get_epoch_ts, AppError},
+    };
 
     // check if the given phone already exists in users collection
     pub async fn check_uniq_phone(db: &Arc<AppDatabase>, phone: &str) -> Result<(), AppError> {
@@ -45,6 +49,20 @@ pub mod helper_inner {
             return Err(err);
         }
 
+        Ok(())
+    }
+
+    // update lastLoginTime for user
+    pub async fn update_login_time(
+        db: &Arc<AppDatabase>,
+        id: u32,
+        login_scheme: LoginScheme,
+    ) -> anyhow::Result<()> {
+        let ts = get_epoch_ts() as i64;
+        let filter = doc! {"id": id};
+        let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme.to_string()}};
+        db.update_one(DB_NAME, COLL_USERS, filter, update, None)
+            .await?;
         Ok(())
     }
 }

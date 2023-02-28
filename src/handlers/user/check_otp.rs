@@ -8,12 +8,15 @@ use axum::{
 use mockall_double::double;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use validator::Validate;
 
-use super::model::User;
+use super::{
+    helper::helper_inner::update_login_time,
+    model::{LoginScheme, User},
+};
 use crate::{
     constants::*,
+    jwt::JWT_KEYS,
     utils::{get_epoch_ts, validate_phonenumber, AppError},
 };
 
@@ -29,6 +32,7 @@ pub struct CheckOtpReq {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
 pub struct Response {
     success: bool,
     data: User,
@@ -63,11 +67,16 @@ pub async fn check_otp_handler(
         let err = anyhow::anyhow!("Not able to update otp in DB");
         return Err(AppError::AnyError(err));
     }
+    update_login_time(&db, user.id, LoginScheme::OTP_BASED).await?;
+
+    let token = JWT_KEYS.generate_token(user.id, Some(user.name.to_owned()))?;
+    let refresh_token = JWT_KEYS.generate_refresh_token(user.id, None)?;
+
     let response = Response {
         success: true,
         data: user,
-        token: "".to_string(),
-        refresh_token: "".to_string(),
+        token,
+        refresh_token,
     };
 
     Ok((StatusCode::OK, Json(response)))

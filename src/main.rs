@@ -6,12 +6,14 @@ mod app;
 mod constants;
 mod database;
 mod handlers;
+mod jwt;
 mod utils;
 
 #[tokio::main]
 async fn main() {
     // import .env file
     dotenv().ok();
+
     // create default env filter
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or("trailsbuddy_backend_rust=debug".into());

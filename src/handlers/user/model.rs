@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -7,6 +8,16 @@ pub enum LoginScheme {
     OTP_BASED,
     GOOGLE,
     FACEBOOK,
+}
+
+impl Display for LoginScheme {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match self {
+            Self::OTP_BASED => write!(f, "OTP_BASED"),
+            Self::GOOGLE => write!(f, "GOOGLE"),
+            Self::FACEBOOK => write!(f, "FACEBOOK"),
+        }
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
