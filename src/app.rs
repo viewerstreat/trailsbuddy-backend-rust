@@ -31,7 +31,7 @@ pub async fn build() -> IntoMakeService<Router> {
     let set_response_header_layer =
         SetResponseHeaderLayer::if_not_present(header::SERVER, server_header_value);
     // create the trace layer for middleware
-    // let trace_layer = TraceLayer::new_for_http();
+    let trace_layer = TraceLayer::new_for_http();
     // create the cors layer for middleware
     let cors_layer = CorsLayer::permissive();
     // create the timeout layer for middleware
@@ -42,7 +42,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .layer(cors_layer)
         .layer(set_response_header_layer)
         .map_response_body(boxed)
-        .layer(TraceLayer::new_for_http())
+        .layer(trace_layer)
         .compression()
         .into_inner();
     // create database client
@@ -50,54 +50,21 @@ pub async fn build() -> IntoMakeService<Router> {
         .await
         .expect("Unable to accquire database client");
     let db_client = Arc::new(db_client);
+
+    let user_route = Router::new().route("/create", post(create_user_handler));
+    let clip_route = Router::new().route("/", get(get_clips_handler));
+
+    let api_route = Router::new()
+        .nest("/user", user_route)
+        .nest("/clip", clip_route);
+
     // create the app instance with all routes and middleware
     let app: Router<(), Body> = Router::new()
         .route("/", get(default_route_handler))
-        .route("/clip", get(get_clips_handler))
-        .route("/user", post(create_user_handler))
+        .nest("/api/v1", api_route)
         .layer(middleware)
         .fallback(global_404_handler)
         .with_state(db_client);
     // return the IntoMakeService instance
     app.into_make_service()
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use std::net::{SocketAddr, TcpListener};
-
-//     use axum::body::Body;
-//     use axum::http::Request;
-
-//     use crate::handlers::default::DefaultResponse;
-
-//     use super::*;
-
-//     #[tokio::test]
-//     async fn test_app_default_route() {
-//         dotenvy::dotenv().ok();
-//         let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
-//         let listener = TcpListener::bind(&addr).unwrap();
-//         let app = build().await;
-
-//         tokio::spawn(async move {
-//             axum::Server::from_tcp(listener)
-//                 .unwrap()
-//                 .serve(app)
-//                 .await
-//                 .unwrap();
-//         });
-
-//         let client = hyper::Client::new();
-
-//         let req_uri = format!("http://{}", addr);
-//         let response = client
-//             .request(Request::builder().uri(req_uri).body(Body::empty()).unwrap())
-//             .await
-//             .unwrap();
-//         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-//         let default_res: DefaultResponse = serde_json::from_slice(&body).unwrap();
-//         assert_eq!(default_res.success, true);
-//         assert_eq!(default_res.message, "Server is running".to_owned());
-//     }
-// }

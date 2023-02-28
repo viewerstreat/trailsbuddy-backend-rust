@@ -20,31 +20,11 @@ pub fn generate_otp(len: u32) -> String {
         .collect()
 }
 
-pub mod misc_outer {
-    #[cfg(test)]
-    use mockall::automock;
-
-    #[cfg_attr(test, automock)]
-    pub mod misc_inner {
-        pub fn add_one(n: u32) -> u32 {
-            n + 1
-        }
-    }
-}
-
-pub use misc_outer::misc_inner::add_one;
-
 #[cfg(test)]
 mod tests {
-
     use std::{thread, time::Duration};
 
     use super::*;
-
-    #[test]
-    fn test_add_one() {
-        assert_eq!(add_one(5), 6);
-    }
 
     #[test]
     fn test_get_epoch_ts() {

@@ -50,7 +50,7 @@ where
         })?;
         // validate json body
         data.validate().map_err(|err| {
-            let msg = format!("Error validating json body: {}", err);
+            let msg = format!("Error validating json body: {err}");
             tracing::debug!(msg);
             let res = json!({"success": false, "message": msg});
             (StatusCode::BAD_REQUEST, Json(res))

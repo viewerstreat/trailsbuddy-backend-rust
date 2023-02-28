@@ -27,7 +27,7 @@ impl IntoResponse for AppError {
                 res.into_response()
             }
             Self::AnyError(err) => {
-                let msg = format!("Something went wrong: {}", err);
+                let msg = format!("Something went wrong: {err}");
                 tracing::debug!("{msg}");
                 let json_val = json!({"success": false, "message": msg});
                 let res = (StatusCode::INTERNAL_SERVER_ERROR, Json(json_val));
