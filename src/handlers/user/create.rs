@@ -1,9 +1,6 @@
-#[cfg(test)]
-use mockall::automock;
-
 use axum::{extract::State, http::StatusCode, Json};
 use mockall_double::double;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -24,7 +21,7 @@ use super::helper::helper_inner;
 #[double]
 use super::otp::otp_inner;
 
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct CreateUserReq {
     #[validate(length(min = 1, max = 50))]
     name: String,
@@ -42,7 +39,6 @@ pub struct CreateUserReq {
     profile_pic: Option<String>,
 }
 
-#[cfg_attr(test, automock)]
 impl CreateUserReq {
     async fn create_user(&self, db: &Arc<AppDatabase>) -> anyhow::Result<User> {
         let id = get_seq_nxt_val(USER_ID_SEQ, db).await?;
@@ -87,6 +83,7 @@ pub async fn create_user_handler(
 mod tests {
     use axum::{body::Body, http::Request, routing::post, Router};
     use mockall::predicate::{eq, function};
+    use mongodb::{bson::Document, options::InsertOneOptions};
     use tower::ServiceExt;
 
     use super::*;
@@ -135,6 +132,15 @@ mod tests {
         message: String,
     }
 
+    fn build_req(body: String) -> Request<String> {
+        Request::builder()
+            .uri("/")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)
+            .unwrap()
+    }
+
     #[tokio::test]
     async fn test_create_user_handler_empty_body() {
         let mock_db = AppDatabase::default();
@@ -166,12 +172,7 @@ mod tests {
             let app = app.clone();
             create_user_req.name = String::new();
             let body = serde_json::to_string(&create_user_req).unwrap();
-            let req = Request::builder()
-                .uri("/")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(body)
-                .unwrap();
+            let req = build_req(body);
             let res = app.oneshot(req).await.unwrap();
             assert_eq!(res.status(), StatusCode::BAD_REQUEST);
             let bd = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -183,12 +184,7 @@ mod tests {
             let app = app.clone();
             create_user_req.name = (0..51).map(|_| 'a').collect();
             let body = serde_json::to_string(&create_user_req).unwrap();
-            let req = Request::builder()
-                .uri("/")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(body)
-                .unwrap();
+            let req = build_req(body);
             let res = app.oneshot(req).await.unwrap();
             assert_eq!(res.status(), StatusCode::BAD_REQUEST);
             let bd = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -207,12 +203,7 @@ mod tests {
         let mut create_user_req = get_test_create_user_req();
         create_user_req.phone = "000111222234".to_string();
         let body = serde_json::to_string(&create_user_req).unwrap();
-        let req = Request::builder()
-            .uri("/")
-            .method("POST")
-            .header("Content-Type", "application/json")
-            .body(body)
-            .unwrap();
+        let req = build_req(body);
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
         let bd = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -222,39 +213,42 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_user_handler_valid() {
-        #[double]
-        use super::CreateUserReq;
-
         let uniq_phone_ctx = helper_inner::check_uniq_phone_context();
         let uniq_email_ctx = helper_inner::check_uniq_email_context();
         let otp_ctx = otp_inner::generate_send_otp_context();
         uniq_phone_ctx.expect().times(1).returning(|_, _| Ok(()));
         uniq_email_ctx.expect().times(1).returning(|_, _| Ok(()));
         otp_ctx.expect().times(1).returning(|_, _| Ok(()));
-        let user_id = 32;
+        let user_id = 23;
+        let body = get_test_create_user_req();
         let mut mock_db = AppDatabase::default();
         mock_db
             .expect_find_one_and_update::<Document>()
             .times(1)
             .returning(move |_, _, _, _, _| Ok(Some(doc! {"val": user_id})));
-
+        let is_none = function(|opt: &Option<InsertOneOptions>| opt.is_none());
+        let check_user = {
+            let body = body.clone();
+            function(move |user: &User| {
+                user.id == user_id
+                    && user.name == body.name
+                    && user.phone == body.phone
+                    && user.email == body.email
+                    && user.profile_pic == body.profile_pic
+            })
+        };
         mock_db
             .expect_insert_one::<User>()
-            .times(1) // TODO: Check arguments to insert_one function here
+            .with(eq(DB_NAME), eq(COLL_USERS), check_user, is_none)
+            .times(1)
             .returning(|_, _, _, _| Ok(String::new()));
 
         let db = Arc::new(mock_db);
         let app = Router::new()
             .route("/", post(create_user_handler))
             .with_state(db);
-        let body = get_test_create_user_req();
         let body = serde_json::to_string(&body).unwrap();
-        let req = Request::builder()
-            .uri("/")
-            .method("POST")
-            .header("Content-Type", "application/json")
-            .body(body)
-            .unwrap();
+        let req = build_req(body);
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::CREATED);
         let bd = hyper::body::to_bytes(res.into_body()).await.unwrap();
