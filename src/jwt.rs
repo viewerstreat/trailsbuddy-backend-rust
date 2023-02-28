@@ -1,9 +1,21 @@
-use jsonwebtoken::errors::Result as JwtResult;
-use jsonwebtoken::{encode, DecodingKey, EncodingKey, Header};
+use axum::{
+    async_trait,
+    extract::FromRequestParts,
+    headers::{authorization::Bearer, Authorization},
+    http::request::Parts,
+    RequestPartsExt, TypedHeader,
+};
+use jsonwebtoken::{
+    decode, encode, errors::Result as JwtResult, DecodingKey, EncodingKey, Header, Validation,
+};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::get_epoch_ts;
+use crate::utils::{get_epoch_ts, AppError};
+
+lazy_static! {
+    pub static ref JWT_KEYS: JwtKeys = JwtKeys::new();
+}
 
 pub struct JwtKeys {
     pub encoding: EncodingKey,
@@ -53,6 +65,21 @@ impl JwtClaims {
     }
 }
 
-lazy_static! {
-    pub static ref JWT_KEYS: JwtKeys = JwtKeys::new();
+#[async_trait]
+impl<S> FromRequestParts<S> for JwtClaims
+where
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let TypedHeader(Authorization(bearer)) = parts
+            .extract::<TypedHeader<Authorization<Bearer>>>()
+            .await
+            .map_err(|_| AppError::Auth("Missing token".into()))?;
+        let token_data =
+            decode::<JwtClaims>(bearer.token(), &JWT_KEYS.decoding, &Validation::default())
+                .map_err(|_| AppError::Auth("Invalid Token".into()))?;
+        Ok(token_data.claims)
+    }
 }
