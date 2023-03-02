@@ -45,7 +45,7 @@ impl CreateUserReq {
         let mut user = User::default();
         user.id = id;
         user.name = self.name.to_owned();
-        user.phone = self.phone.to_owned();
+        user.phone = Some(self.phone.to_owned());
         user.email = self.email.clone();
         user.is_active = true;
         user.total_played = Some(0);
@@ -128,7 +128,7 @@ mod tests {
         let user = create_user_req.create_user(&db).await.unwrap();
         assert_eq!(user.id, user_id);
         assert_eq!(user.name, create_user_req.name);
-        assert_eq!(user.phone, create_user_req.phone);
+        assert_eq!(user.phone, Some(create_user_req.phone));
         assert_eq!(user.email, create_user_req.email);
         assert_eq!(user.profile_pic, create_user_req.profile_pic);
         assert_eq!(user.is_active, true);
@@ -244,7 +244,7 @@ mod tests {
             function(move |user: &User| {
                 user.id == user_id
                     && user.name == body.name
-                    && user.phone == body.phone
+                    && user.phone == Some(body.phone.to_owned())
                     && user.email == body.email
                     && user.profile_pic == body.profile_pic
             })

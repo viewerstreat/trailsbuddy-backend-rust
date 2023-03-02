@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum LoginScheme {
     #[default]
@@ -20,12 +20,14 @@ impl Display for LoginScheme {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: u32,
     pub name: String,
-    pub phone: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,

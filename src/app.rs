@@ -19,7 +19,8 @@ use crate::{
         default::default_route_handler,
         global_404::global_404_handler,
         user::{
-            check_otp::check_otp_handler, create::create_user_handler, update::update_user_handler,
+            check_otp::check_otp_handler, create::create_user_handler, login::login_handler,
+            update::update_user_handler,
         },
     },
 };
@@ -56,6 +57,7 @@ pub async fn build() -> IntoMakeService<Router> {
     let db_client = Arc::new(db_client);
 
     let user_route = Router::new()
+        .route("/login", post(login_handler))
         .route("/create", post(create_user_handler))
         .route("/checkOtp", get(check_otp_handler))
         .route("/update", post(update_user_handler));

@@ -54,9 +54,8 @@ pub async fn update_user_handler(
         && body.email.is_none()
         && body.profile_pic.is_none()
     {
-        return Err(AppError::BadRequestErr(
-            "name/phone/email/profilePic is required".into(),
-        ));
+        let err = AppError::BadRequestErr("name/phone/email/profilePic is required".into());
+        return Err(err);
     }
     // check if phone already exists in the DB
     if let Some(phone) = &body.phone {

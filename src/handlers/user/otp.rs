@@ -51,10 +51,14 @@ pub mod otp_inner {
             .find_one::<User>(DB_NAME, COLL_USERS, f, None)
             .await?
             .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
+        let Some(phone) = &user.phone else {
+            let err = anyhow::anyhow!("User phone not found");
+            return Err(err);  
+        };
         let otp = generate_otp(OTP_LENGTH);
         let otp = Otp::new(user_id, otp.as_str());
         db.insert_one::<Otp>(DB_NAME, COLL_OTP, &otp, None).await?;
-        send_otp(&user.phone, &otp.otp);
+        send_otp(phone, &otp.otp);
         Ok(())
     }
 
@@ -91,6 +95,9 @@ mod otp_tests {
     #[tokio::test]
     async fn test_generate_send_otp() {
         let user_id = 1;
+        let mut user = User::default();
+        user.id = user_id;
+        user.phone = Some("1234567890".into());
         let f = Some(doc! {"id": user_id});
         let check_none = function(|options: &Option<FindOneOptions>| options.is_none());
         let check_none_ins = function(|options: &Option<InsertOneOptions>| options.is_none());
@@ -105,8 +112,11 @@ mod otp_tests {
             .expect_find_one::<User>()
             .with(eq(DB_NAME), eq(COLL_USERS), eq(f), check_none)
             .times(1)
-            .returning(|_, _, _, _| Ok(Some(User::default())));
-
+            .returning(|_, _, _, _| {
+                let mut user = User::default();
+                user.phone = Some("1234567890".into());
+                Ok(Some(user))
+            });
         mock_db
             .expect_insert_one::<Otp>()
             .with(eq(DB_NAME), eq(COLL_OTP), check_otp, check_none_ins)
