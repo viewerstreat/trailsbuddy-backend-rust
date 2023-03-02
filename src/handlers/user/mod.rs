@@ -5,6 +5,7 @@ pub mod helper;
 pub mod login;
 pub mod model;
 pub mod otp;
+pub mod renew_token;
 pub mod update;
 pub mod update_fcm_token;
 pub mod verify;

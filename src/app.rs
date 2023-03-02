@@ -21,8 +21,8 @@ use crate::{
         user::{
             check_otp::check_otp_handler, create::create_user_handler,
             get_leaderboard::get_leaderboard_handler, login::login_handler,
-            update::update_user_handler, update_fcm_token::update_fcm_token_handler,
-            verify::verify_user_handler,
+            renew_token::renew_token_handler, update::update_user_handler,
+            update_fcm_token::update_fcm_token_handler, verify::verify_user_handler,
         },
     },
 };
@@ -65,6 +65,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/create", post(create_user_handler))
         .route("/checkOtp", get(check_otp_handler))
         .route("/updateFcmToken", post(update_fcm_token_handler))
+        .route("/renewToken", post(renew_token_handler))
         .route("/update", post(update_user_handler));
     let clip_route = Router::new().route("/", get(get_clips_handler));
 

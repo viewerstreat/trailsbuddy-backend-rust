@@ -14,5 +14,6 @@ pub const COLL_SEQUENCES: &str = "sequences";
 pub const COLL_CLIPS: &str = "clips";
 pub const COLL_USERS: &str = "users";
 pub const COLL_OTP: &str = "otps";
+pub const COLL_USED_TOKENS: &str = "usedTokens";
 
 pub const USER_ID_SEQ: &str = "USER_ID_SEQ";

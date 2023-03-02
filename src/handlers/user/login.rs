@@ -47,10 +47,10 @@ pub struct Response {
 }
 
 #[derive(Debug)]
-struct TokenData {
-    name: String,
-    email: String,
-    profile_pic: Option<String>,
+pub struct TokenData {
+    pub name: String,
+    pub email: String,
+    pub profile_pic: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -128,7 +128,7 @@ async fn verify_token(body: &LoginRequest) -> Result<TokenData, AppError> {
     }
 }
 
-async fn verify_id_token(id_token: &str) -> Result<TokenData, AppError> {
+pub async fn verify_id_token(id_token: &str) -> Result<TokenData, AppError> {
     let jwks_resp = reqwest::get(GOOGLE_JWKS_URI)
         .await?
         .json::<JwksResp>()
@@ -159,7 +159,7 @@ async fn verify_id_token(id_token: &str) -> Result<TokenData, AppError> {
     Ok(decoded_token.claims.into())
 }
 
-async fn verify_fb_token(fb_token: &str) -> Result<TokenData, AppError> {
+pub async fn verify_fb_token(fb_token: &str) -> Result<TokenData, AppError> {
     let url = format!(
         "{}?access_token={}&fields=id,name,email,picture",
         FB_ME_URL, fb_token
@@ -199,13 +199,13 @@ async fn create_or_update_user(
             let err = AppError::BadRequestErr("user is inactive".into());
             return Err(err);
         }
-        update_user(db, user.id, login_scheme).await
+        update_user_login(db, user.id, login_scheme).await
     } else {
         create_user(db, token_data, login_scheme).await
     }
 }
 
-async fn update_user(
+pub async fn update_user_login(
     db: &Arc<AppDatabase>,
     user_id: u32,
     login_scheme: LoginScheme,
