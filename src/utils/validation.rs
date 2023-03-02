@@ -2,10 +2,10 @@ use axum::{
     async_trait,
     extract::FromRequest,
     http::{Request, StatusCode},
+    response::{IntoResponse, Response},
     Json, RequestExt,
 };
-
-use serde_json::{json, Value};
+use serde_json::json;
 use validator::{Validate, ValidationError};
 
 /// Custom validator function to check phone number
@@ -38,22 +38,22 @@ where
     T: Validate + 'static,
     Json<T>: FromRequest<(), B>,
 {
-    type Rejection = (StatusCode, Json<Value>);
+    // type Rejection = (StatusCode, Json<Value>);
+    type Rejection = Response;
 
     async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
         // extract the JSON body
-        let Json(data) = req.extract::<Json<T>, _>().await.map_err(|_| {
+        let Json(data) = req.extract::<Json<T>, _>().await.map_err(|err| {
             let msg = format!("Error extracting the JSON body");
             tracing::debug!(msg);
-            let res = json!({"success": false, "message": msg});
-            (StatusCode::BAD_REQUEST, Json(res))
+            err.into_response()
         })?;
         // validate json body
         data.validate().map_err(|err| {
             let msg = format!("Error validating json body: {err}");
             tracing::debug!(msg);
             let res = json!({"success": false, "message": msg});
-            (StatusCode::BAD_REQUEST, Json(res))
+            (StatusCode::BAD_REQUEST, Json(res)).into_response()
         })?;
         // return the validated body
         Ok(Self(data))

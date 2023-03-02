@@ -64,4 +64,7 @@ pub struct User {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_ts: Option<u64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fcm_tokens: Option<Vec<String>>,
 }

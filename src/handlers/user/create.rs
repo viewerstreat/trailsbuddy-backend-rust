@@ -166,10 +166,7 @@ mod tests {
             .body(Body::empty())
             .unwrap();
         let res = app.oneshot(req).await.unwrap();
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-        let bd = hyper::body::to_bytes(res.into_body()).await.unwrap();
-        let response: Response = serde_json::from_slice(&bd).unwrap();
-        assert_eq!(response.success, false);
+        assert_eq!(res.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }
 
     #[tokio::test]
