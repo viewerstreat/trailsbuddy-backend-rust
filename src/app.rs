@@ -21,6 +21,7 @@ use crate::{
         notification::{
             clear_noti::{clear_all_noti_handler, clear_noti_handler},
             get_noti::get_noti_handler,
+            mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
         },
         user::{
             check_otp::check_otp_handler, create::create_user_handler,
@@ -75,7 +76,9 @@ pub async fn build() -> IntoMakeService<Router> {
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
         .route("/clear", post(clear_noti_handler))
-        .route("/clearall", post(clear_all_noti_handler));
+        .route("/clearall", post(clear_all_noti_handler))
+        .route("/markRead", post(mark_read_noti_handler))
+        .route("/markAllRead", post(mark_all_read_noti_handler));
 
     let api_route = Router::new()
         .nest("/user", user_route)
