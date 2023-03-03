@@ -18,7 +18,10 @@ use crate::{
         clips::get_clips_handler,
         default::default_route_handler,
         global_404::global_404_handler,
-        notification::get_noti::get_noti_handler,
+        notification::{
+            clear_noti::{clear_all_noti_handler, clear_noti_handler},
+            get_noti::get_noti_handler,
+        },
         user::{
             check_otp::check_otp_handler, create::create_user_handler,
             get_leaderboard::get_leaderboard_handler, login::login_handler,
@@ -69,7 +72,10 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/renewToken", post(renew_token_handler))
         .route("/update", post(update_user_handler));
     let clip_route = Router::new().route("/", get(get_clips_handler));
-    let noti_route = Router::new().route("/", get(get_noti_handler));
+    let noti_route = Router::new()
+        .route("/", get(get_noti_handler))
+        .route("/clear", post(clear_noti_handler))
+        .route("/clearall", post(clear_all_noti_handler));
 
     let api_route = Router::new()
         .nest("/user", user_route)

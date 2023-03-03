@@ -139,4 +139,32 @@ impl AppDatabase {
         };
         Ok(update_result)
     }
+
+    pub async fn update_many(
+        &self,
+        db: &str,
+        coll: &str,
+        query: Document,
+        update: Document,
+        options: Option<UpdateOptions>,
+    ) -> anyhow::Result<UpdateResult> {
+        let collection = self.0.database(db).collection::<Document>(coll);
+        let result = collection.update_many(query, update, options).await?;
+        let upserted_id = match result.upserted_id {
+            None => None,
+            Some(uid) => {
+                let Bson::ObjectId(oid) = uid else {
+                let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
+                    return Err (err);
+                };
+                Some(oid.to_hex())
+            }
+        };
+        let update_result = UpdateResult {
+            modified_count: result.modified_count,
+            matched_count: result.matched_count,
+            upserted_id,
+        };
+        Ok(update_result)
+    }
 }
