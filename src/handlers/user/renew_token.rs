@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use jsonwebtoken::{decode, Validation};
 use mockall_double::double;
 use mongodb::bson::{doc, Document};
 use serde::{Deserialize, Serialize};
@@ -11,7 +10,7 @@ use super::{
 };
 use crate::{
     constants::*,
-    jwt::{JwtClaims, JWT_KEYS},
+    jwt::JWT_KEYS,
     utils::{get_epoch_ts, AppError},
 };
 
@@ -108,9 +107,10 @@ async fn renew_token_fb(db: &Arc<AppDatabase>, fb_token: &str) -> RetType {
 }
 
 async fn renew_token_otp(db: &Arc<AppDatabase>, refresh_token: &str) -> RetType {
-    let token_data = decode::<JwtClaims>(refresh_token, &JWT_KEYS.decoding, &Validation::default())
-        .map_err(|_| AppError::BadRequestErr("Invalid Token".into()))?;
-    let user_id = token_data.claims.id;
+    let claims = JWT_KEYS
+        .extract_claims(refresh_token)
+        .ok_or(AppError::BadRequestErr("Invalid Token".into()))?;
+    let user_id = claims.id;
     let filter = Some(doc! {"token": refresh_token});
     let data = db
         .find_one::<Document>(DB_NAME, COLL_USED_TOKENS, filter, None)

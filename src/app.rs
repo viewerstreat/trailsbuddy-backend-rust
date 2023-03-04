@@ -15,7 +15,7 @@ use tower_http::{
 use crate::{
     constants::REQUEST_TIMEOUT_SECS,
     handlers::{
-        clips::get_clips_handler,
+        clip::get_clip::get_clips_handler,
         default::default_route_handler,
         global_404::global_404_handler,
         notification::{

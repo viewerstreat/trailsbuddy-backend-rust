@@ -49,6 +49,12 @@ impl JwtKeys {
         let claims = JwtClaims::new(id, name, exp);
         encode(&Header::default(), &claims, &self.encoding)
     }
+
+    pub fn extract_claims(&self, token: &str) -> Option<JwtClaims> {
+        let token_data =
+            decode::<JwtClaims>(&token, &self.decoding, &Validation::default()).ok()?;
+        Some(token_data.claims)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

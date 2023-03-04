@@ -3,7 +3,8 @@ use futures::stream::StreamExt;
 use mongodb::bson::{Bson, Document};
 use mongodb::error::Result as MongoResult;
 use mongodb::options::{
-    FindOneAndUpdateOptions, FindOneOptions, FindOptions, InsertOneOptions, UpdateOptions,
+    AggregateOptions, FindOneAndUpdateOptions, FindOneOptions, FindOptions, InsertOneOptions,
+    UpdateOptions,
 };
 use mongodb::{options::ClientOptions, Client};
 use serde::de::DeserializeOwned;
@@ -13,7 +14,7 @@ use std::time::Duration;
 #[cfg(test)]
 use mockall::automock;
 
-pub struct AppDatabase(Client);
+pub struct AppDatabase(pub Client);
 
 #[derive(Debug)]
 pub struct UpdateResult {
@@ -166,5 +167,21 @@ impl AppDatabase {
             upserted_id,
         };
         Ok(update_result)
+    }
+
+    pub async fn aggregate(
+        &self,
+        db: &str,
+        coll: &str,
+        pipeline: Vec<Document>,
+        options: Option<AggregateOptions>,
+    ) -> MongoResult<Vec<Document>> {
+        let collection = self.0.database(db).collection::<Document>(coll);
+        let mut cursor = collection.aggregate(pipeline, options).await?;
+        let mut data = vec![];
+        while let Some(doc) = cursor.next().await {
+            data.push(doc?);
+        }
+        Ok(data)
     }
 }
