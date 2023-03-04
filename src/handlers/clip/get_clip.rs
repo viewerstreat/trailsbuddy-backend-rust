@@ -4,7 +4,6 @@ use axum::{
     Json,
 };
 use mockall_double::double;
-use mongodb::bson::serde_helpers::hex_string_as_object_id;
 use mongodb::bson::{doc, oid::ObjectId, Document};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -14,43 +13,6 @@ use crate::{constants::*, utils::error_handler::AppError};
 
 #[double]
 use crate::database::AppDatabase;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct LikesEntry {
-    user_id: u32,
-    is_removed: bool,
-    created_ts: Option<u64>,
-    updated_ts: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ViewsEntry {
-    user_id: u32,
-    updated_ts: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Clips {
-    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
-    #[serde(rename = "_id")]
-    _id: String,
-    name: Option<String>,
-    description: Option<String>,
-    banner_image_url: Option<String>,
-    video_url: Option<String>,
-    view_count: Option<u32>,
-    like_count: Option<u32>,
-    likes: Option<LikesEntry>,
-    views: Option<ViewsEntry>,
-    is_active: bool,
-    created_by: Option<u32>,
-    created_ts: Option<u64>,
-    updated_by: Option<u32>,
-    updated_ts: Option<u64>,
-}
 
 #[derive(Debug, Serialize)]
 pub struct Response {
