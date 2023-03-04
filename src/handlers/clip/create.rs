@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
 use axum::{extract::State, Json};
 use mockall_double::double;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use validator::Validate;
 
 use super::model::{ClipRespData, Clips};

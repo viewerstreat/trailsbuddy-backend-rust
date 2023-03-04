@@ -1,3 +1,4 @@
+use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::get_epoch_ts;
@@ -5,33 +6,41 @@ use crate::utils::get_epoch_ts;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LikesEntry {
-    user_id: u32,
-    is_removed: bool,
-    created_ts: Option<u64>,
-    updated_ts: Option<u64>,
+    pub user_id: u32,
+    pub is_removed: bool,
+    pub created_ts: Option<u64>,
+    pub updated_ts: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ViewsEntry {
-    user_id: u32,
-    updated_ts: Option<u64>,
+    pub user_id: u32,
+    pub updated_ts: Option<u64>,
+}
+
+impl From<ViewsEntry> for Bson {
+    fn from(value: ViewsEntry) -> Self {
+        let ts = value.updated_ts.and_then(|ts| Some(ts as i64));
+        let d = doc! {"userId": value.user_id, "updatedTs": ts};
+        Self::Document(d)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Clips {
-    name: String,
-    description: String,
-    banner_image_url: String,
-    video_url: String,
-    likes: Option<Vec<LikesEntry>>,
-    views: Option<Vec<ViewsEntry>>,
-    is_active: bool,
-    created_by: Option<u32>,
-    created_ts: Option<u64>,
-    updated_by: Option<u32>,
-    updated_ts: Option<u64>,
+    pub name: String,
+    pub description: String,
+    pub banner_image_url: String,
+    pub video_url: String,
+    pub likes: Option<Vec<LikesEntry>>,
+    pub views: Option<Vec<ViewsEntry>>,
+    pub is_active: bool,
+    pub created_by: Option<u32>,
+    pub created_ts: Option<u64>,
+    pub updated_by: Option<u32>,
+    pub updated_ts: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

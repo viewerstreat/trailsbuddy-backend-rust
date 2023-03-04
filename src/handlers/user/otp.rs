@@ -53,7 +53,7 @@ pub mod otp_inner {
             .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
         let Some(phone) = &user.phone else {
             let err = anyhow::anyhow!("User phone not found");
-            return Err(err);  
+            return Err(err);
         };
         let otp = generate_otp(OTP_LENGTH);
         let otp = Otp::new(user_id, otp.as_str());

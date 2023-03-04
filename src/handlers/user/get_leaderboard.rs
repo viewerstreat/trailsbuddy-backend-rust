@@ -37,18 +37,19 @@ pub async fn get_leaderboard_handler(
     let result = db
         .find::<User>(DB_NAME, COLL_USERS, filter, options)
         .await?;
-    let data = result.into_iter().map(|user| {
-        LeaderboardData {
+    let data = result
+        .into_iter()
+        .map(|user| LeaderboardData {
             id: user.id,
             name: user.name,
             total_played: user.total_played.unwrap_or_default(),
             contest_won: user.contest_won.unwrap_or_default(),
-            total_earning: user.total_earning.unwrap_or_default()
-        }
-    }).collect::<Vec<_>>();
+            total_earning: user.total_earning.unwrap_or_default(),
+        })
+        .collect::<Vec<_>>();
     let res = Response {
         success: true,
-        data
+        data,
     };
     Ok(Json(res))
 }

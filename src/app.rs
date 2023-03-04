@@ -15,7 +15,10 @@ use tower_http::{
 use crate::{
     constants::REQUEST_TIMEOUT_SECS,
     handlers::{
-        clip::{create::create_clip_handler, get_clip::get_clips_handler},
+        clip::{
+            add_view::add_clip_view_handler, create::create_clip_handler,
+            get_clip::get_clips_handler,
+        },
         default::default_route_handler,
         global_404::global_404_handler,
         notification::{
@@ -74,7 +77,8 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/update", post(update_user_handler));
     let clip_route = Router::new()
         .route("/", get(get_clips_handler))
-        .route("/create", post(create_clip_handler));
+        .route("/create", post(create_clip_handler))
+        .route("/addView", post(add_clip_view_handler));
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
         .route("/clear", post(clear_noti_handler))
