@@ -1,5 +1,6 @@
 use axum::{extract::State, Json};
 use mockall_double::double;
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::{Validate, ValidationError};
@@ -56,6 +57,7 @@ pub async fn create_movie_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateMovieReqBody>,
 ) -> Result<Json<Response>, AppError> {
+    check_duplicate_name(&db, &body.name).await?;
     let ts = get_epoch_ts();
     let movie = Movie {
         name: body.name,
@@ -84,4 +86,16 @@ pub async fn create_movie_handler(
         data: movie.to_movie_resp_data(&result),
     };
     Ok(Json(res))
+}
+
+async fn check_duplicate_name(db: &Arc<AppDatabase>, name: &str) -> Result<(), AppError> {
+    let filter = doc! {"name": name};
+    let movie = db
+        .find_one::<Movie>(DB_NAME, COLL_MOVIES, Some(filter), None)
+        .await?;
+    if movie.is_some() {
+        let err = AppError::BadRequestErr("Movie alread exists with same name".into());
+        return Err(err);
+    }
+    Ok(())
 }
