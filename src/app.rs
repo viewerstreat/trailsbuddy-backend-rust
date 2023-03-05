@@ -31,6 +31,8 @@ use crate::{
             get_noti::get_noti_handler,
             mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
         },
+        ping::ping_handler,
+        temp_api::{temp_api_get_otp, temp_api_get_token},
         upload::single::upload_handler,
         user::{
             check_otp::check_otp_handler, create::create_user_handler,
@@ -72,6 +74,10 @@ pub async fn build() -> IntoMakeService<Router> {
         .expect("Unable to accquire database client");
     let db_client = Arc::new(db_client);
 
+    let root_route = Router::new()
+        .route("/ping", get(ping_handler))
+        .route("/tempApiGetToken", get(temp_api_get_token))
+        .route("/tempApiGetOtp", get(temp_api_get_otp));
     let user_route = Router::new()
         .route("/verify", get(verify_user_handler))
         .route("/getLeaderboard", get(get_leaderboard_handler))
@@ -100,6 +106,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT));
 
     let api_route = Router::new()
+        .nest("/", root_route)
         .nest("/user", user_route)
         .nest("/notification", noti_route)
         .nest("/movie", movie_route)

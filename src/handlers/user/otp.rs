@@ -1,6 +1,6 @@
 use mockall_double::double;
 use mongodb::bson::doc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::database::AppDatabase;
 
 use super::model::User;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Otp {
     pub user_id: u32,

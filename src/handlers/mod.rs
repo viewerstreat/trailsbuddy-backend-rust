@@ -3,5 +3,7 @@ pub(crate) mod default;
 pub(crate) mod global_404;
 pub(crate) mod movie;
 pub(crate) mod notification;
+pub(crate) mod ping;
+pub(crate) mod temp_api;
 pub(crate) mod upload;
 pub(crate) mod user;
