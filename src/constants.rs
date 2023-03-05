@@ -7,6 +7,9 @@ pub const OTP_LENGTH: u32 = 6;
 pub const OTP_VALIDITY_MINS: u64 = 10;
 pub const GOOGLE_JWKS_URI: &str = "https://www.googleapis.com/oauth2/v3/certs";
 pub const FB_ME_URL: &str = "https://graph.facebook.com/me";
+pub const AWS_REGION: &str = "ap-south-1";
+pub const AWS_BUCKET: &str = "trailsbuddy-1";
+pub const MULTIPART_BODY_LIMIT: usize = 100 * 1024 * 1024;
 
 pub const DB_NAME: &str = "treatviewers";
 

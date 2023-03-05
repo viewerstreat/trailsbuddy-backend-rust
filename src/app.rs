@@ -1,5 +1,6 @@
 use axum::{
     body::{boxed, Body},
+    extract::DefaultBodyLimit,
     http::{header, HeaderValue},
     routing::{get, post, IntoMakeService},
     Router,
@@ -13,7 +14,7 @@ use tower_http::{
 };
 
 use crate::{
-    constants::REQUEST_TIMEOUT_SECS,
+    constants::*,
     handlers::{
         clip::{
             add_view::add_clip_view_handler, create::create_clip_handler,
@@ -30,6 +31,7 @@ use crate::{
             get_noti::get_noti_handler,
             mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
         },
+        upload::single::upload_handler,
         user::{
             check_otp::check_otp_handler, create::create_user_handler,
             get_leaderboard::get_leaderboard_handler, login::login_handler,
@@ -93,12 +95,16 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/clearall", post(clear_all_noti_handler))
         .route("/markRead", post(mark_read_noti_handler))
         .route("/markAllRead", post(mark_all_read_noti_handler));
+    let upload_route = Router::new()
+        .route("/single", post(upload_handler))
+        .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT));
 
     let api_route = Router::new()
         .nest("/user", user_route)
         .nest("/notification", noti_route)
         .nest("/movie", movie_route)
-        .nest("/clip", clip_route);
+        .nest("/clip", clip_route)
+        .nest("/upload", upload_route);
 
     // create the app instance with all routes and middleware
     let app: Router<(), Body> = Router::new()
