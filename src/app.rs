@@ -21,7 +21,10 @@ use crate::{
         },
         default::default_route_handler,
         global_404::global_404_handler,
-        movie::{add_view::add_movie_view_handler, create::create_movie_handler},
+        movie::{
+            add_view::add_movie_view_handler, create::create_movie_handler,
+            get_movie::get_movie_handler,
+        },
         notification::{
             clear_noti::{clear_all_noti_handler, clear_noti_handler},
             get_noti::get_noti_handler,
@@ -81,6 +84,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/create", post(create_clip_handler))
         .route("/addView", post(add_clip_view_handler));
     let movie_route = Router::new()
+        .route("/", get(get_movie_handler))
         .route("/create", post(create_movie_handler))
         .route("/addView", post(add_movie_view_handler));
     let noti_route = Router::new()

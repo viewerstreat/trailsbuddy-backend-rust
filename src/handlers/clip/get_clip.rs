@@ -1,6 +1,6 @@
-use axum::http::HeaderMap;
 use axum::{
     extract::{Query, State},
+    http::HeaderMap,
     Json,
 };
 use mockall_double::double;
@@ -8,8 +8,10 @@ use mongodb::bson::{doc, oid::ObjectId, Document};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::jwt::JWT_KEYS;
-use crate::{constants::*, utils::error_handler::AppError};
+use crate::{
+    constants::*,
+    utils::{error_handler::AppError, get_user_id_from_token},
+};
 
 #[double]
 use crate::database::AppDatabase;
@@ -55,13 +57,6 @@ fn create_find_by_doc(params: &Query<Params>) -> Result<Document, AppError> {
         find_by.insert("_id", oid);
     }
     Ok(find_by)
-}
-
-fn get_user_id_from_token(headers: &HeaderMap) -> Option<u32> {
-    let authorization = headers.get("Authorization")?.to_str().ok()?;
-    let (_, token) = authorization.split_once(' ')?;
-    let claims = JWT_KEYS.extract_claims(token)?;
-    Some(claims.id)
 }
 
 fn pipeline_query(params: &Query<Params>, user_id: u32) -> Result<Vec<Document>, AppError> {

@@ -1,5 +1,8 @@
+use axum::http::HeaderMap;
 use rand::{thread_rng, Rng};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::jwt::JWT_KEYS;
 
 /// Get EPOCH timestamp in seconds
 pub fn get_epoch_ts() -> u64 {
@@ -18,6 +21,13 @@ pub fn generate_otp(len: u32) -> String {
             char::from_digit(n, 10).unwrap_or('0')
         })
         .collect()
+}
+
+pub fn get_user_id_from_token(headers: &HeaderMap) -> Option<u32> {
+    let authorization = headers.get("Authorization")?.to_str().ok()?;
+    let (_, token) = authorization.split_once(' ')?;
+    let claims = JWT_KEYS.extract_claims(token)?;
+    Some(claims.id)
 }
 
 #[cfg(test)]
