@@ -21,6 +21,7 @@ use crate::{
         },
         default::default_route_handler,
         global_404::global_404_handler,
+        movie::create::create_movie_handler,
         notification::{
             clear_noti::{clear_all_noti_handler, clear_noti_handler},
             get_noti::get_noti_handler,
@@ -79,6 +80,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/", get(get_clips_handler))
         .route("/create", post(create_clip_handler))
         .route("/addView", post(add_clip_view_handler));
+    let movie_route = Router::new().route("/create", post(create_movie_handler));
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
         .route("/clear", post(clear_noti_handler))
@@ -89,6 +91,7 @@ pub async fn build() -> IntoMakeService<Router> {
     let api_route = Router::new()
         .nest("/user", user_route)
         .nest("/notification", noti_route)
+        .nest("/movie", movie_route)
         .nest("/clip", clip_route);
 
     // create the app instance with all routes and middleware
