@@ -89,7 +89,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/update", post(update_user_handler));
     let clip_route = Router::new()
         .route("/", get(get_clips_handler))
-        .route("/create", post(create_clip_handler))
+        .route("/", post(create_clip_handler))
         .route("/addView", post(add_clip_view_handler));
     let movie_route = Router::new()
         .route("/", get(get_movie_handler))
