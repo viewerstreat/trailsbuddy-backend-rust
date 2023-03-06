@@ -21,7 +21,7 @@ use crate::{
             get_clip::get_clips_handler,
         },
         default::default_route_handler,
-        favourite::create::add_favourite_handler,
+        favourite::{create::add_favourite_handler, get::get_favourite_handler},
         global_404::global_404_handler,
         movie::{
             add_view::add_movie_view_handler, create::create_movie_handler,
@@ -99,7 +99,9 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/details", get(movie_details_handler))
         .route("/addView", post(add_movie_view_handler))
         .route("/isLikedByMe", get(is_liked_by_me_handler));
-    let fav_route = Router::new().route("/", post(add_favourite_handler));
+    let fav_route = Router::new()
+        .route("/", post(add_favourite_handler))
+        .route("/", get(get_favourite_handler));
 
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))

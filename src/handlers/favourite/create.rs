@@ -3,7 +3,10 @@ use mockall_double::double;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
-use std::sync::Arc;
+use std::{
+    fmt::{self, Display},
+    sync::Arc,
+};
 
 #[double]
 use crate::database::AppDatabase;
@@ -19,6 +22,15 @@ use crate::{
 pub enum MediaType {
     Clip,
     Movie,
+}
+
+impl Display for MediaType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Clip => write!(f, "clip"),
+            Self::Movie => write!(f, "movie"),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
