@@ -4,7 +4,7 @@ use mongodb::bson::{Bson, Document};
 use mongodb::error::Result as MongoResult;
 use mongodb::options::{
     AggregateOptions, FindOneAndUpdateOptions, FindOneOptions, FindOptions, InsertOneOptions,
-    UpdateOptions,
+    SelectionCriteria, UpdateOptions,
 };
 use mongodb::{options::ClientOptions, Client};
 use serde::de::DeserializeOwned;
@@ -183,5 +183,14 @@ impl AppDatabase {
             data.push(doc?);
         }
         Ok(data)
+    }
+
+    pub async fn run_command(
+        &self,
+        db: &str,
+        command: Document,
+        options: Option<SelectionCriteria>,
+    ) -> MongoResult<Document> {
+        self.0.database(db).run_command(command, options).await
     }
 }

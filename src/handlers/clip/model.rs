@@ -19,6 +19,27 @@ pub struct ViewsEntry {
     pub updated_ts: Option<u64>,
 }
 
+impl LikesEntry {
+    pub fn new(user_id: u32) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            user_id,
+            is_removed: false,
+            created_ts: Some(ts),
+            updated_ts: None,
+        }
+    }
+}
+
+impl From<LikesEntry> for Bson {
+    fn from(value: LikesEntry) -> Self {
+        let created_ts = value.created_ts.and_then(|ts| Some(ts as i64));
+        let updated_ts = value.updated_ts.and_then(|ts| Some(ts as i64));
+        let d = doc! {"userId": value.user_id, "isRemoved": value.is_removed, "createdTs": created_ts, "updatedTs": updated_ts};
+        Self::Document(d)
+    }
+}
+
 impl From<ViewsEntry> for Bson {
     fn from(value: ViewsEntry) -> Self {
         let ts = value.updated_ts.and_then(|ts| Some(ts as i64));

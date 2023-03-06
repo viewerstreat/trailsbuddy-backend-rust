@@ -21,6 +21,7 @@ use crate::{
             get_clip::get_clips_handler,
         },
         default::default_route_handler,
+        favourite::create::add_favourite_handler,
         global_404::global_404_handler,
         movie::{
             add_view::add_movie_view_handler, create::create_movie_handler,
@@ -98,6 +99,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/details", get(movie_details_handler))
         .route("/addView", post(add_movie_view_handler))
         .route("/isLikedByMe", get(is_liked_by_me_handler));
+    let fav_route = Router::new().route("/", post(add_favourite_handler));
 
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
@@ -115,6 +117,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .nest("/notification", noti_route)
         .nest("/movie", movie_route)
         .nest("/clip", clip_route)
+        .nest("/favourite", fav_route)
         .nest("/upload", upload_route);
 
     // create the app instance with all routes and middleware

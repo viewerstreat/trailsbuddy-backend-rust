@@ -1,5 +1,6 @@
 pub(crate) mod clip;
 pub(crate) mod default;
+pub(crate) mod favourite;
 pub(crate) mod global_404;
 pub(crate) mod movie;
 pub(crate) mod notification;
