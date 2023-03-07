@@ -34,7 +34,10 @@ use crate::{
             mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
         },
         ping::ping_handler,
-        question::{create::create_question_handler, get::get_question_handler},
+        question::{
+            create::create_question_handler, delete::delete_question_handler,
+            get::get_question_handler, update::update_question_handler,
+        },
         temp_api::{temp_api_get_otp, temp_api_get_token},
         upload::single::upload_handler,
         user::{
@@ -105,7 +108,9 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/", get(get_favourite_handler));
     let question_route = Router::new()
         .route("/", post(create_question_handler))
-        .route("/", get(get_question_handler));
+        .route("/", get(get_question_handler))
+        .route("/delete", post(delete_question_handler))
+        .route("/update", post(update_question_handler));
 
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))

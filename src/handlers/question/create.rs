@@ -3,7 +3,10 @@ use mockall_double::double;
 use mongodb::bson::{doc, oid::ObjectId, Document};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
-use std::sync::Arc;
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    sync::Arc,
+};
 use validator::Validate;
 
 use crate::{
@@ -21,6 +24,15 @@ use crate::database::AppDatabase;
 pub enum ExtraMediaType {
     Image,
     Video,
+}
+
+impl Display for ExtraMediaType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Image => write!(f, "image"),
+            Self::Video => write!(f, "video"),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -116,7 +128,10 @@ pub async fn create_question_handler(
     Ok(Json(res))
 }
 
-async fn check_valid_contest(db: &Arc<AppDatabase>, contest_id: &ObjectId) -> Result<(), AppError> {
+pub async fn check_valid_contest(
+    db: &Arc<AppDatabase>,
+    contest_id: &ObjectId,
+) -> Result<(), AppError> {
     let filter = doc! {
         "_id": contest_id,
         "isActive": true,
