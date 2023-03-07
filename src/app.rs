@@ -34,6 +34,7 @@ use crate::{
             mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
         },
         ping::ping_handler,
+        question::{create::create_question_handler, get::get_question_handler},
         temp_api::{temp_api_get_otp, temp_api_get_token},
         upload::single::upload_handler,
         user::{
@@ -102,6 +103,9 @@ pub async fn build() -> IntoMakeService<Router> {
     let fav_route = Router::new()
         .route("/", post(add_favourite_handler))
         .route("/", get(get_favourite_handler));
+    let question_route = Router::new()
+        .route("/", post(create_question_handler))
+        .route("/", get(get_question_handler));
 
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
@@ -120,6 +124,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .nest("/movie", movie_route)
         .nest("/clip", clip_route)
         .nest("/favourite", fav_route)
+        .nest("/question", question_route)
         .nest("/upload", upload_route);
 
     // create the app instance with all routes and middleware
