@@ -10,6 +10,12 @@ pub const FB_ME_URL: &str = "https://graph.facebook.com/me";
 pub const AWS_REGION: &str = "ap-south-1";
 pub const AWS_BUCKET: &str = "trailsbuddy-1";
 pub const MULTIPART_BODY_LIMIT: usize = 100 * 1024 * 1024;
+// pub const FINALIZE_CONTEST_JOB_INTERVAL: u64 = 5;
+// pub const NOTIFICATION_JOB_INTERVAL: u64 = 2;
+// pub const CLEANUP_JOB_INTERVAL: u64 = 24;
+pub const FINALIZE_CONTEST_JOB_INTERVAL: u64 = 5 * 60;
+pub const NOTIFICATION_JOB_INTERVAL: u64 = 2 * 60;
+pub const CLEANUP_JOB_INTERVAL: u64 = 24 * 60 * 60;
 
 pub const DB_NAME: &str = "treatviewers";
 

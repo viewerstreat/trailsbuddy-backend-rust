@@ -1,4 +1,5 @@
 use dotenvy::dotenv;
+use jobs::spawn_all_jobs;
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -6,6 +7,7 @@ mod app;
 mod constants;
 mod database;
 mod handlers;
+mod jobs;
 mod jwt;
 mod utils;
 
@@ -13,7 +15,12 @@ mod utils;
 async fn main() {
     // import .env file
     dotenv().ok();
+    initialize_logging();
+    spawn_all_jobs();
+    start_server().await;
+}
 
+fn initialize_logging() {
     // create default env filter
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or("trailsbuddy_backend_rust=debug".into());
@@ -23,7 +30,9 @@ async fn main() {
         .with(env_filter)
         .with(tracing_subscriber::fmt::layer())
         .init();
+}
 
+async fn start_server() {
     // read the port number from env variable
     let port = std::env::var("PORT").unwrap_or_default();
     let port = port.parse::<u16>().unwrap_or(3000);
