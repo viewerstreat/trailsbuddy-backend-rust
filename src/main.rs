@@ -28,7 +28,7 @@ fn initialize_logging() {
     // initialize tracing subscriber for logging
     tracing_subscriber::registry()
         .with(env_filter)
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().pretty())
         .init();
 }
 
