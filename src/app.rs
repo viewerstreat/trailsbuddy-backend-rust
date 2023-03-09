@@ -42,6 +42,7 @@ use crate::{
             renew_token::renew_token_handler, update::update_user_handler,
             update_fcm_token::update_fcm_token_handler, verify::verify_user_handler,
         },
+        wallet::get_bal::get_bal_handler,
     },
 };
 
@@ -102,7 +103,6 @@ pub async fn build() -> IntoMakeService<Router> {
     let fav_route = Router::new()
         .route("/", post(add_favourite_handler))
         .route("/", get(get_favourite_handler));
-
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
         .route("/clear", post(clear_noti_handler))
@@ -112,6 +112,7 @@ pub async fn build() -> IntoMakeService<Router> {
     let upload_route = Router::new()
         .route("/single", post(upload_handler))
         .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT));
+    let wallet_route = Router::new().route("/getBalance", get(get_bal_handler));
 
     let api_route = Router::new()
         .nest("/", root_route)
@@ -120,6 +121,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .nest("/movie", movie_route)
         .nest("/clip", clip_route)
         .nest("/favourite", fav_route)
+        .nest("/wallet", wallet_route)
         .nest("/upload", upload_route);
 
     // create the app instance with all routes and middleware
