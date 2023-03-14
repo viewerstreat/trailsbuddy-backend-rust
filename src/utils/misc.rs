@@ -1,8 +1,11 @@
 use axum::http::HeaderMap;
+use mongodb::bson::oid::ObjectId;
 use rand::{thread_rng, Rng};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{constants::*, jwt::JWT_KEYS};
+
+use super::AppError;
 
 /// Get EPOCH timestamp in seconds
 pub fn get_epoch_ts() -> u64 {
@@ -41,6 +44,14 @@ pub fn get_user_id_from_token(headers: &HeaderMap) -> Option<u32> {
 pub fn get_object_url(key: &str) -> String {
     let region = std::env::var("AWS_REGION").unwrap_or(AWS_REGION.to_owned());
     format!("https://{}.s3.{}.amazonaws.com/{}", AWS_BUCKET, region, key)
+}
+
+pub fn parse_object_id(id: &str, error_message: &str) -> Result<ObjectId, AppError> {
+    let oid = ObjectId::parse_str(id).map_err(|err| {
+        tracing::debug!("{:?}", err);
+        AppError::BadRequestErr(error_message.into())
+    })?;
+    Ok(oid)
 }
 
 #[cfg(test)]

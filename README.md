@@ -14,4 +14,5 @@ The backend web server for Trailsbuddy app written in Rust.
 - AWS_ACCESS_KEY_ID
 - AWS_SECRET_ACCESS_KEY
 - AWS_REGION
+- APP_UPI_ID
 

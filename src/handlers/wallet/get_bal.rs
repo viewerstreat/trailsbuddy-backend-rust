@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::Serialize;
 use std::sync::Arc;
@@ -7,7 +6,10 @@ use std::sync::Arc;
 use super::model::{Money, Wallet};
 use crate::{constants::*, jwt::JwtClaims, utils::AppError};
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]
@@ -24,28 +26,23 @@ impl Response {
     }
 }
 
-impl Default for Response {
-    fn default() -> Self {
-        let balance = Money::new(0, 0);
-        Self {
-            success: true,
-            balance,
-        }
-    }
-}
-
 pub async fn get_bal_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
 ) -> Result<Json<Response>, AppError> {
-    let filter = doc! {"userId": claims.id};
+    let balance = get_user_balance(&db, claims.id).await?.unwrap_or_default();
+    let res = Response::new(balance);
+    Ok(Json(res))
+}
+
+pub async fn get_user_balance(
+    db: &Arc<AppDatabase>,
+    user_id: u32,
+) -> anyhow::Result<Option<Money>> {
+    let filter = doc! {"userId": user_id};
     let wallet = db
         .find_one::<Wallet>(DB_NAME, COLL_WALLETS, Some(filter), None)
         .await?;
-    let res = if let Some(wallet) = wallet {
-        Response::new(wallet.balance())
-    } else {
-        Response::default()
-    };
-    Ok(Json(res))
+    let balance = wallet.and_then(|wallet| Some(wallet.balance()));
+    Ok(balance)
 }

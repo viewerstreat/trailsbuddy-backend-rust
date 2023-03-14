@@ -42,7 +42,10 @@ use crate::{
             renew_token::renew_token_handler, update::update_user_handler,
             update_fcm_token::update_fcm_token_handler, verify::verify_user_handler,
         },
-        wallet::get_bal::get_bal_handler,
+        wallet::{
+            add_bal::{add_bal_end_handler, add_bal_init_handler},
+            get_bal::get_bal_handler,
+        },
     },
 };
 
@@ -112,7 +115,10 @@ pub async fn build() -> IntoMakeService<Router> {
     let upload_route = Router::new()
         .route("/single", post(upload_handler))
         .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT));
-    let wallet_route = Router::new().route("/getBalance", get(get_bal_handler));
+    let wallet_route = Router::new()
+        .route("/getBalance", get(get_bal_handler))
+        .route("/addBalanceInit", post(add_bal_init_handler))
+        .route("/addBalanceEnd", post(add_bal_end_handler));
 
     let api_route = Router::new()
         .nest("/", root_route)
