@@ -72,7 +72,7 @@ pub struct AddBalEndReq {
     tracking_id: Option<String>,
 }
 
-const TRANSACTION_ID_PARSE_ERR: &str = "Not able to parse transactionId value";
+pub const TRANSACTION_ID_PARSE_ERR: &str = "Not able to parse transactionId value";
 
 pub async fn add_bal_end_handler(
     claims: JwtClaims,
@@ -143,7 +143,7 @@ async fn update_wallet(
     Ok(wallet)
 }
 
-async fn update_wallet_transaction(
+pub async fn update_wallet_transaction(
     db: &AppDatabase,
     session: &mut ClientSession,
     transaction_id: &ObjectId,
@@ -229,7 +229,7 @@ async fn validate_transaction(
     Ok(())
 }
 
-async fn updated_failed_transaction(
+pub async fn updated_failed_transaction(
     db: &Arc<AppDatabase>,
     user_id: u32,
     transaction_id: &ObjectId,

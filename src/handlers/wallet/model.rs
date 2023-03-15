@@ -125,6 +125,31 @@ impl WalletTransaction {
         }
     }
 
+    pub fn withdraw_bal_init_trans(
+        user_id: u32,
+        amount: Money,
+        balance_before: Money,
+        receiver_upi_id: &str,
+    ) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            user_id,
+            transaction_type: WalltetTransactionType::Withdraw,
+            amount,
+            status: WalletTransactionStatus::Pending,
+            balance_before,
+            balance_after: None,
+            tracking_id: None,
+            remarks: None,
+            receiver_upi_id: Some(receiver_upi_id.to_string()),
+            error_reason: None,
+            created_ts: Some(ts),
+            created_by: Some(user_id),
+            updated_ts: None,
+            updated_by: None,
+        }
+    }
+
     pub fn user_id(&self) -> u32 {
         self.user_id
     }

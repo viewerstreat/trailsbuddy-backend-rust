@@ -16,6 +16,7 @@ pub const MULTIPART_BODY_LIMIT: usize = 100 * 1024 * 1024;
 pub const FINALIZE_CONTEST_JOB_INTERVAL: u64 = 5 * 60;
 pub const NOTIFICATION_JOB_INTERVAL: u64 = 2 * 60;
 pub const CLEANUP_JOB_INTERVAL: u64 = 24 * 60 * 60;
+pub const WITHDRAW_BAL_MIN_AMOUNT: u64 = 10;
 
 pub const DB_NAME: &str = "treatviewers";
 
