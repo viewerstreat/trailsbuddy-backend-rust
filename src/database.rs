@@ -1,14 +1,15 @@
 use crate::constants::*;
-use futures::stream::StreamExt;
-use mongodb::bson::{Bson, Document};
-use mongodb::error::Result as MongoResult;
-use mongodb::options::{
-    AggregateOptions, FindOneAndUpdateOptions, FindOneOptions, FindOptions, InsertOneOptions,
-    SelectionCriteria, UpdateOptions,
+use futures::{future::BoxFuture, stream::StreamExt};
+use mongodb::{
+    bson::{Bson, Document},
+    error::{Result as MongoResult, UNKNOWN_TRANSACTION_COMMIT_RESULT},
+    options::{
+        AggregateOptions, ClientOptions, FindOneAndUpdateOptions, FindOneOptions, FindOptions,
+        InsertOneOptions, SelectionCriteria, SessionOptions, TransactionOptions, UpdateOptions,
+    },
+    Client, ClientSession,
 };
-use mongodb::{options::ClientOptions, Client};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
 
 #[cfg(test)]
@@ -109,6 +110,7 @@ impl AppDatabase {
             return Ok(oid.to_hex());
         }
 
+        tracing::debug!("Invalid insert_one result: {:?}", result);
         let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
         Err(err)
     }
@@ -192,5 +194,143 @@ impl AppDatabase {
         options: Option<SelectionCriteria>,
     ) -> MongoResult<Document> {
         self.0.database(db).run_command(command, options).await
+    }
+
+    pub async fn execute_transaction<F>(
+        &self,
+        session_options: Option<SessionOptions>,
+        transaction_options: Option<TransactionOptions>,
+        f: F,
+    ) -> anyhow::Result<()>
+    where
+        F: for<'a> Fn(&'a AppDatabase, &'a mut ClientSession) -> BoxFuture<'a, anyhow::Result<()>>,
+    {
+        let mut session = self.0.start_session(session_options).await.unwrap();
+        session.start_transaction(transaction_options).await?;
+        let result = f(&self, &mut session).await;
+        if result.is_err() {
+            tracing::debug!("Abort transaction due to error: {:?}", result);
+            session.abort_transaction().await?;
+            let _ = result?;
+        }
+
+        loop {
+            let commit_result = session.commit_transaction().await;
+            if let Err(error) = commit_result.as_ref() {
+                if error.contains_label(UNKNOWN_TRANSACTION_COMMIT_RESULT) {
+                    continue;
+                }
+            }
+            let _ = commit_result?;
+            break;
+        }
+        Ok(())
+    }
+
+    pub async fn insert_one_with_session<T>(
+        &self,
+        session: &mut ClientSession,
+        db: &str,
+        coll: &str,
+        doc: &T,
+        options: Option<InsertOneOptions>,
+    ) -> anyhow::Result<String>
+    where
+        T: Serialize + 'static,
+    {
+        let collection = self.0.database(db).collection::<T>(coll);
+        let result = collection
+            .insert_one_with_session(doc, options, session)
+            .await?;
+        if let Bson::ObjectId(oid) = result.inserted_id {
+            return Ok(oid.to_hex());
+        }
+
+        tracing::debug!("Invalid insert_one_with_session result: {:?}", result);
+        let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
+        Err(err)
+    }
+
+    pub async fn find_with_session<T>(
+        &self,
+        session: &mut ClientSession,
+        db: &str,
+        coll: &str,
+        filter: Option<Document>,
+        options: Option<FindOptions>,
+    ) -> MongoResult<Vec<T>>
+    where
+        T: DeserializeOwned + Unpin + Send + Sync + 'static,
+    {
+        let coll = self.0.database(db).collection::<T>(coll);
+        let mut cursor = coll.find_with_session(filter, options, session).await?;
+        let mut data = vec![];
+        while let Some(doc) = cursor.next(session).await {
+            data.push(doc?);
+        }
+        Ok(data)
+    }
+
+    pub async fn find_one_with_session<T>(
+        &self,
+        session: &mut ClientSession,
+        db: &str,
+        coll: &str,
+        filter: Option<Document>,
+        options: Option<FindOneOptions>,
+    ) -> MongoResult<Option<T>>
+    where
+        T: DeserializeOwned + Unpin + Send + Sync + 'static,
+    {
+        let coll = self.0.database(db).collection::<T>(coll);
+        coll.find_one_with_session(filter, options, session).await
+    }
+
+    pub async fn find_one_and_update_with_session<T>(
+        &self,
+        session: &mut ClientSession,
+        db: &str,
+        coll: &str,
+        filter: Document,
+        update: Document,
+        options: Option<FindOneAndUpdateOptions>,
+    ) -> MongoResult<Option<T>>
+    where
+        T: DeserializeOwned + Send + Sync + 'static,
+    {
+        let coll = self.0.database(db).collection::<T>(coll);
+        coll.find_one_and_update_with_session(filter, update, options, session)
+            .await
+    }
+
+    pub async fn update_one_with_session(
+        &self,
+        session: &mut ClientSession,
+        db: &str,
+        coll: &str,
+        query: Document,
+        update: Document,
+        options: Option<UpdateOptions>,
+    ) -> anyhow::Result<UpdateResult> {
+        let collection = self.0.database(db).collection::<Document>(coll);
+        let result = collection
+            .update_one_with_session(query, update, options, session)
+            .await?;
+        let upserted_id = match result.upserted_id {
+            None => None,
+            Some(uid) => {
+                let Bson::ObjectId(oid) = uid else {
+                let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
+                    return Err (err);
+                };
+                Some(oid.to_hex())
+            }
+        };
+        let update_result = UpdateResult {
+            modified_count: result.modified_count,
+            matched_count: result.matched_count,
+            upserted_id,
+        };
+        Ok(update_result)
     }
 }

@@ -47,6 +47,11 @@ use crate::{
             renew_token::renew_token_handler, update::update_user_handler,
             update_fcm_token::update_fcm_token_handler, verify::verify_user_handler,
         },
+        wallet::{
+            add_bal::{add_bal_end_handler, add_bal_init_handler},
+            get_bal::get_bal_handler,
+            withdraw_bal::{withdraw_bal_end_handler, withdraw_bal_init_handler},
+        },
     },
 };
 
@@ -123,6 +128,12 @@ pub async fn build() -> IntoMakeService<Router> {
     let upload_route = Router::new()
         .route("/single", post(upload_handler))
         .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT));
+    let wallet_route = Router::new()
+        .route("/getBalance", get(get_bal_handler))
+        .route("/addBalanceInit", post(add_bal_init_handler))
+        .route("/addBalanceEnd", post(add_bal_end_handler))
+        .route("/withdrawBalInit", post(withdraw_bal_init_handler))
+        .route("/withdrawBalanceEnd", post(withdraw_bal_end_handler));
 
     let api_route = Router::new()
         .nest("/", root_route)
@@ -133,6 +144,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .nest("/favourite", fav_route)
         .nest("/question", question_route)
         .nest("/contest", contest_route)
+        .nest("/wallet", wallet_route)
         .nest("/upload", upload_route);
 
     // create the app instance with all routes and middleware

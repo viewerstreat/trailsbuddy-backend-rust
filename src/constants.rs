@@ -16,6 +16,7 @@ pub const MULTIPART_BODY_LIMIT: usize = 100 * 1024 * 1024;
 pub const FINALIZE_CONTEST_JOB_INTERVAL: u64 = 5 * 60;
 pub const NOTIFICATION_JOB_INTERVAL: u64 = 2 * 60;
 pub const CLEANUP_JOB_INTERVAL: u64 = 24 * 60 * 60;
+pub const WITHDRAW_BAL_MIN_AMOUNT: u64 = 10;
 
 pub const DB_NAME: &str = "treatviewers";
 
@@ -28,5 +29,7 @@ pub const COLL_USED_TOKENS: &str = "usedTokens";
 pub const COLL_NOTIFICATIONS: &str = "notifications";
 pub const COLL_CONTESTS: &str = "contests";
 pub const COLL_QUESTIONS: &str = "questions";
+pub const COLL_WALLETS: &str = "wallets";
+pub const COLL_WALLET_TRANSACTIONS: &str = "walletTransactions";
 
 pub const USER_ID_SEQ: &str = "USER_ID_SEQ";

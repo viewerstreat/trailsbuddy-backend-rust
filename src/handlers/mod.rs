@@ -10,3 +10,4 @@ pub(crate) mod question;
 pub(crate) mod temp_api;
 pub(crate) mod upload;
 pub(crate) mod user;
+pub(crate) mod wallet;
