@@ -1,18 +1,15 @@
 use axum::{extract::State, Json};
 use mockall_double::double;
-use mongodb::bson::{doc, oid::ObjectId, Document};
+use mongodb::bson::{doc, Document};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::sync::Arc;
 use validator::Validate;
 
 use crate::{
     constants::*,
     jwt::JwtClaims,
-    utils::{get_epoch_ts, AppError, ValidatedBody},
+    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
 #[double]
@@ -27,19 +24,6 @@ pub enum ContestStatus {
     FINISHED,
     CANCELLED,
     ENDED,
-}
-
-impl Display for ContestStatus {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        match self {
-            Self::CREATED => write!(f, "CREATED"),
-            Self::ACTIVE => write!(f, "ACTIVE"),
-            Self::INACTIVE => write!(f, "INACTIVE"),
-            Self::FINISHED => write!(f, "FINISHED"),
-            Self::CANCELLED => write!(f, "CANCELLED"),
-            Self::ENDED => write!(f, "ENDED"),
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -69,6 +53,7 @@ pub struct Contest {
     movie_id: Option<String>,
     #[validate(length(min = 1))]
     sponsored_by: String,
+    #[validate(url)]
     sponsored_by_logo: Option<String>,
     #[validate(url)]
     banner_image_url: String,
@@ -101,16 +86,7 @@ pub async fn create_contest_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(mut body): ValidatedBody<Contest>,
 ) -> Result<Json<JsonValue>, AppError> {
-    let (duplicate_check, movie_id_check) = tokio::join!(
-        check_duplicate_title(&db, &body.title),
-        validate_movie_id(&db, &body)
-    );
-    duplicate_check?;
-    movie_id_check?;
-    validate_entry_fee(&body)?;
-    validate_prize_selection(&body)?;
-    validate_prize_value(&body)?;
-    validate_start_end_time(&body)?;
+    validate_body(&db, &body).await?;
     let ts = get_epoch_ts();
     body.status = Some(ContestStatus::CREATED);
     body.created_ts = Some(ts);
@@ -126,6 +102,20 @@ pub async fn create_contest_handler(
     Ok(Json(res))
 }
 
+async fn validate_body(db: &Arc<AppDatabase>, body: &Contest) -> Result<(), AppError> {
+    let (duplicate_check, movie_id_check) = tokio::join!(
+        check_duplicate_title(&db, &body.title),
+        validate_movie_id(&db, &body)
+    );
+    duplicate_check?;
+    movie_id_check?;
+    validate_entry_fee(&body)?;
+    validate_prize_selection(&body)?;
+    validate_prize_value(&body)?;
+    validate_start_end_time(&body)?;
+    Ok(())
+}
+
 async fn check_duplicate_title(db: &Arc<AppDatabase>, title: &str) -> Result<(), AppError> {
     let filter = doc! {"title": title};
     let result = db
@@ -139,28 +129,27 @@ async fn check_duplicate_title(db: &Arc<AppDatabase>, title: &str) -> Result<(),
 }
 
 async fn validate_movie_id(db: &Arc<AppDatabase>, body: &Contest) -> Result<(), AppError> {
-    if body.category == ContestCategory::Others {
-        if body.movie_id.is_some() {
-            let msg = "movieId should be blank for `others` category";
-            let err = AppError::BadRequestErr(msg.into());
-            return Err(err);
+    match body.category {
+        ContestCategory::Others => {
+            if body.movie_id.is_some() {
+                let msg = "movieId should be blank for `others` category";
+                let err = AppError::BadRequestErr(msg.into());
+                return Err(err);
+            }
         }
-        return Ok(());
-    }
-    if body.movie_id.is_none() {
-        let err = AppError::BadRequestErr("movieId is required".into());
-        return Err(err);
-    }
-    let movie_id = body.movie_id.as_ref().unwrap();
-    let oid = ObjectId::parse_str(movie_id).map_err(|err| {
-        tracing::debug!("not able to parse movie_id: {:?}", err);
-        AppError::BadRequestErr("not able to parse movieId".into())
-    })?;
-    let filter = doc! {"_id": oid, "isActive": true};
-    db.find_one::<Document>(DB_NAME, COLL_MOVIES, Some(filter), None)
-        .await?
-        .ok_or(AppError::BadRequestErr("movie not found".into()))?;
-
+        ContestCategory::Movie => {
+            let movie_id = body
+                .movie_id
+                .as_ref()
+                .ok_or(AppError::BadRequestErr("movieId is required".into()))?;
+            let msg = "not able to parse movieId";
+            let oid = parse_object_id(&movie_id, msg)?;
+            let filter = doc! {"_id": oid, "isActive": true};
+            db.find_one::<Document>(DB_NAME, COLL_MOVIES, Some(filter), None)
+                .await?
+                .ok_or(AppError::BadRequestErr("movie not found".into()))?;
+        }
+    };
     Ok(())
 }
 
@@ -173,25 +162,28 @@ fn validate_entry_fee(body: &Contest) -> Result<(), AppError> {
 }
 
 fn validate_prize_selection(body: &Contest) -> Result<(), AppError> {
-    if body.prize_selection == PrizeSelection::TOP_WINNERS && body.top_winners_count.is_none() {
-        let err = AppError::BadRequestErr("topWinnersCount required".into());
-        return Err(err);
-    }
-    if body.prize_selection == PrizeSelection::RATIO_BASED {
-        let Some(prize_ratio_numerator) = body.prize_ratio_numerator else {
-            let err = AppError::BadRequestErr("prizeRatioNumerator required".into());
-            return Err(err);
-        };
-        let Some(prize_ratio_denominator ) = body.prize_ratio_denominator else {
-            let err = AppError::BadRequestErr("prizeRatioDenominator required".into());
-            return Err(err);
-        };
-        if prize_ratio_numerator > prize_ratio_denominator {
-            let msg = "prizeRatioNumerator must be less than prizeRatioDenominator";
-            let err = AppError::BadRequestErr(msg.into());
-            return Err(err);
+    match body.prize_selection {
+        PrizeSelection::TOP_WINNERS => {
+            body.top_winners_count
+                .ok_or(AppError::BadRequestErr("topWinnersCount required".into()))?;
         }
-    }
+        PrizeSelection::RATIO_BASED => {
+            let (numerator, denominator) = body
+                .prize_ratio_numerator
+                .and_then(|numerator| {
+                    body.prize_ratio_denominator
+                        .and_then(|denominator| Some((numerator, denominator)))
+                })
+                .ok_or(AppError::BadRequestErr(
+                    "prizeRatioNumerator & prizeRatioDenominator required".into(),
+                ))?;
+            if numerator > denominator {
+                let msg = "prizeRatioNumerator must be less than prizeRatioDenominator";
+                let err = AppError::BadRequestErr(msg.into());
+                return Err(err);
+            }
+        }
+    };
 
     Ok(())
 }

@@ -135,7 +135,7 @@ pub async fn check_valid_contest(
     let filter = doc! {
         "_id": contest_id,
         "isActive": true,
-        "status": ContestStatus::CREATED.to_string()
+        // "status": ContestStatus::CREATED.to_string()
     };
     let _result = db
         .find_one::<Document>(DB_NAME, COLL_CONTESTS, Some(filter), None)
