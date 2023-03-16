@@ -1,6 +1,7 @@
 use axum::http::HeaderMap;
 use mongodb::bson::oid::ObjectId;
 use rand::{thread_rng, Rng};
+use serde::{Deserialize, Deserializer};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{constants::*, jwt::JWT_KEYS};
@@ -34,6 +35,7 @@ pub fn get_random_num(low: u32, high: u32) -> u32 {
     rng.gen_range(low..high)
 }
 
+/// Extracts user_id value from authorization header
 pub fn get_user_id_from_token(headers: &HeaderMap) -> Option<u32> {
     let authorization = headers.get("Authorization")?.to_str().ok()?;
     let (_, token) = authorization.split_once(' ')?;
@@ -41,17 +43,31 @@ pub fn get_user_id_from_token(headers: &HeaderMap) -> Option<u32> {
     Some(claims.id)
 }
 
+/// Returns S3 object url for a given key
 pub fn get_object_url(key: &str) -> String {
     let region = std::env::var("AWS_REGION").unwrap_or(AWS_REGION.to_owned());
     format!("https://{}.s3.{}.amazonaws.com/{}", AWS_BUCKET, region, key)
 }
 
+/// Parse the given value as ObjectId
 pub fn parse_object_id(id: &str, error_message: &str) -> Result<ObjectId, AppError> {
     let oid = ObjectId::parse_str(id).map_err(|err| {
         tracing::debug!("{:?}", err);
         AppError::BadRequestErr(error_message.into())
     })?;
     Ok(oid)
+}
+
+/// Deserialize helper for ObjectId field
+pub fn deserialize_helper<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let val = Option::<ObjectId>::deserialize(deserializer)?;
+    match val {
+        None => Ok(None),
+        Some(val) => Ok(Some(val.to_hex())),
+    }
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use axum::{extract::State, Json};
 use mockall_double::double;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::{doc, Bson, Document};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
@@ -9,7 +9,7 @@ use validator::Validate;
 use crate::{
     constants::*,
     jwt::JwtClaims,
-    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
+    utils::{deserialize_helper, get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
 #[double]
@@ -26,11 +26,25 @@ pub enum ContestStatus {
     ENDED,
 }
 
+impl ContestStatus {
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum ContestCategory {
     Movie,
     Others,
+}
+
+impl ContestCategory {
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -45,6 +59,8 @@ pub enum PrizeSelection {
 pub struct Contest {
     #[serde(rename = "_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "deserialize_helper")]
+    #[serde(default)]
     _id: Option<String>,
     #[validate(length(min = 1))]
     title: String,

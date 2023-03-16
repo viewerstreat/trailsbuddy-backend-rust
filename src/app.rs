@@ -20,7 +20,7 @@ use crate::{
             add_view::add_clip_view_handler, create::create_clip_handler,
             get_clip::get_clips_handler,
         },
-        contest::create::create_contest_handler,
+        contest::{create::create_contest_handler, get::get_contest_handler},
         default::default_route_handler,
         favourite::{create::add_favourite_handler, get::get_favourite_handler},
         global_404::global_404_handler,
@@ -117,7 +117,9 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/", get(get_question_handler))
         .route("/delete", post(delete_question_handler))
         .route("/update", post(update_question_handler));
-    let contest_route = Router::new().route("/", post(create_contest_handler));
+    let contest_route = Router::new()
+        .route("/", post(create_contest_handler))
+        .route("/", get(get_contest_handler));
 
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
