@@ -7,8 +7,12 @@ use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::create::Question;
-use crate::{constants::*, jwt::JwtClaims, utils::AppError};
+use super::create::{Contest, Question};
+use crate::{
+    constants::*,
+    jwt::JwtClaims,
+    utils::{parse_object_id, AppError},
+};
 
 #[double]
 use crate::database::AppDatabase;
@@ -17,13 +21,12 @@ use crate::database::AppDatabase;
 #[serde(rename_all = "camelCase")]
 pub struct Params {
     contest_id: String,
-    question_no: u32,
 }
 
 #[derive(Debug, Serialize)]
 pub struct Response {
     success: bool,
-    data: Question,
+    data: Option<Vec<Question>>,
 }
 
 pub async fn get_question_handler(
@@ -31,11 +34,15 @@ pub async fn get_question_handler(
     State(db): State<Arc<AppDatabase>>,
     params: Query<Params>,
 ) -> Result<Json<Response>, AppError> {
-    let filter = doc! {"contestId": &params.contest_id, "questionNo": params.question_no};
-    let data = db
-        .find_one::<Question>(DB_NAME, COLL_QUESTIONS, Some(filter), None)
+    let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
+    let filter = doc! {"_id": contest_id};
+    let contest = db
+        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
-        .ok_or(AppError::NotFound("Question not found".into()))?;
+        .ok_or(AppError::NotFound("Contest not found".into()))?;
+    let data = contest
+        .questions
+        .and_then(|questions| Some(questions.into_iter().filter(|q| q.is_active).collect()));
     let res = Response {
         success: true,
         data,

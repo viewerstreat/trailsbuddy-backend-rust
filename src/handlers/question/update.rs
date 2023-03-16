@@ -75,18 +75,18 @@ pub async fn update_question_handler(
         update.insert("options", options);
     }
     let update = doc! {"$set": update};
-    let result = db
-        .update_one(DB_NAME, COLL_QUESTIONS, filter, update, None)
-        .await?;
-    if result.matched_count == 0 {
-        let err = AppError::NotFound("question not found".into());
-        return Err(err);
-    }
-    if result.matched_count != result.modified_count {
-        tracing::debug!("not able to update database properly: {:?}", result);
-        let err = anyhow::anyhow!("not able to update database");
-        return Err(AppError::AnyError(err));
-    }
+    // let result = db
+    //     .update_one(DB_NAME, COLL_QUESTIONS, filter, update, None)
+    //     .await?;
+    // if result.matched_count == 0 {
+    //     let err = AppError::NotFound("question not found".into());
+    //     return Err(err);
+    // }
+    // if result.matched_count != result.modified_count {
+    //     tracing::debug!("not able to update database properly: {:?}", result);
+    //     let err = anyhow::anyhow!("not able to update database");
+    //     return Err(AppError::AnyError(err));
+    // }
     let res = json!({"success": true, "message": "updated successfully"});
     Ok(Json(res))
 }

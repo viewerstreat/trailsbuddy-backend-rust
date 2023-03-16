@@ -67,7 +67,7 @@ pub struct Contest {
     #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
     _id: String,
     status: ContestStatus,
-    questions: Option<Vec<Question>>,
+    pub questions: Option<Vec<Question>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
