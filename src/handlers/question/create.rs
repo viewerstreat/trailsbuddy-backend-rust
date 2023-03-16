@@ -1,19 +1,17 @@
 use axum::{extract::State, Json};
 use mockall_double::double;
-use mongodb::bson::{doc, oid::ObjectId, Document};
+use mongodb::bson::serde_helpers::hex_string_as_object_id;
+use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::sync::Arc;
 use validator::Validate;
 
 use crate::{
     constants::*,
     handlers::contest::create::ContestStatus,
     jwt::JwtClaims,
-    utils::{get_epoch_ts, AppError, ValidatedBody},
+    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
 #[double]
@@ -26,12 +24,10 @@ pub enum ExtraMediaType {
     Video,
 }
 
-impl Display for ExtraMediaType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self {
-            Self::Image => write!(f, "image"),
-            Self::Video => write!(f, "video"),
-        }
+impl ExtraMediaType {
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
     }
 }
 
@@ -43,33 +39,35 @@ pub struct Answer {
     #[validate(length(min = 1, max = 100))]
     pub option_text: String,
     pub is_correct: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_media_type: Option<ExtraMediaType>,
     #[validate(url)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_media_link: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Question {
-    pub contest_id: String,
     pub question_no: u32,
     pub question_text: String,
     pub options: Vec<Answer>,
     pub is_active: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_media_type: Option<ExtraMediaType>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_media_link: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_ts: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_ts: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<u32>,
+}
+
+impl Question {
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Contest {
+    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
+    _id: String,
+    status: ContestStatus,
+    questions: Option<Vec<Question>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -93,70 +91,53 @@ pub async fn create_question_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ReqBody>,
 ) -> Result<Json<JsonValue>, AppError> {
-    let contest_id = ObjectId::parse_str(&body.contest_id).map_err(|err| {
-        tracing::debug!("not able to parse contest_id: {:?}", err);
-        AppError::BadRequestErr("not able to parse contestId".into())
-    })?;
-    if body.extra_media_type.is_some() && body.extra_media_link.is_none() {
-        let err = AppError::BadRequestErr("extraMediaLink missing".into());
-        return Err(err);
-    }
-    validate_options(&body.options)?;
-    let (contest_check, duplicate_check) = tokio::join!(
-        check_valid_contest(&db, &contest_id),
-        check_duplicate_ques_no(&db, &contest_id, claims.id)
-    );
-    let _ = contest_check?;
-    let _ = duplicate_check?;
+    let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
+    validate_request(&db, &body, &contest_id).await?;
     let question = Question {
-        contest_id: body.contest_id,
         question_no: body.question_no,
         question_text: body.question_text,
         options: body.options,
         extra_media_type: body.extra_media_type,
         extra_media_link: body.extra_media_link,
         is_active: true,
-        created_ts: Some(get_epoch_ts()),
-        created_by: Some(claims.id),
-        updated_ts: None,
-        updated_by: None,
     };
-    let _r = db
-        .insert_one::<Question>(DB_NAME, COLL_QUESTIONS, &question, None)
+    let ts = get_epoch_ts() as i64;
+    let filter = doc! {"_id": contest_id};
+    let update = doc! {
+        "$push": {"questions": question.to_bson()?},
+        "$set": {"updatedTs": ts, "updatedBy": claims.id}
+    };
+    db.update_one(DB_NAME, COLL_CONTESTS, filter, update, None)
         .await?;
     let res = json!({"success": true, "message": "Inserted successfully"});
     Ok(Json(res))
 }
 
-pub async fn check_valid_contest(
+pub async fn validate_request(
     db: &Arc<AppDatabase>,
+    body: &ReqBody,
     contest_id: &ObjectId,
 ) -> Result<(), AppError> {
-    let filter = doc! {
-        "_id": contest_id,
-        "isActive": true,
-        // "status": ContestStatus::CREATED.to_string()
-    };
-    let _result = db
-        .find_one::<Document>(DB_NAME, COLL_CONTESTS, Some(filter), None)
-        .await?
-        .ok_or(AppError::BadRequestErr("Not valid contest".into()))?;
-    Ok(())
-}
-
-async fn check_duplicate_ques_no(
-    db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
-    question_no: u32,
-) -> Result<(), AppError> {
-    let filter = doc! {"contestId": contest_id, "questionNo": question_no};
-    let result = db
-        .find_one::<Document>(DB_NAME, COLL_QUESTIONS, Some(filter), None)
-        .await?;
-    if result.is_some() {
-        let err = AppError::BadRequestErr("Duplicate question".into());
+    if body.extra_media_type.is_some() && body.extra_media_link.is_none() {
+        let err = AppError::BadRequestErr("extraMediaLink missing".into());
         return Err(err);
     }
+    let filter = doc! {"_id": contest_id, "status": ContestStatus::CREATED.to_bson()?};
+    let contest = db
+        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .await?
+        .ok_or(AppError::NotFound("Not valid contest".into()))?;
+    if let Some(questions) = contest.questions.as_ref() {
+        if questions
+            .iter()
+            .any(|ques| ques.question_no == body.question_no)
+        {
+            let err = AppError::BadRequestErr("Duplicate question".into());
+            return Err(err);
+        }
+    }
+    validate_options(body.options.as_ref())?;
+
     Ok(())
 }
 

@@ -6,7 +6,6 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::create::check_valid_contest;
 use crate::{
     constants::*,
     jwt::JwtClaims,
@@ -34,7 +33,7 @@ pub async fn delete_question_handler(
         tracing::debug!("not able to parse contest_id: {:?}", err);
         AppError::BadRequestErr("not able to parse contestId".into())
     })?;
-    check_valid_contest(&db, &contest_id).await?;
+    // check_valid_contest(&db, &contest_id).await?;
     let filter = doc! {
         "contestId": &body.contest_id,
         "questionNo": body.question_no,

@@ -6,7 +6,7 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::create::{check_valid_contest, Answer, ExtraMediaType};
+use super::create::{Answer, ExtraMediaType};
 use crate::{
     constants::*,
     handlers::contest::create::ContestStatus,
@@ -42,7 +42,6 @@ pub async fn update_question_handler(
         tracing::debug!("not able to parse contest_id: {:?}", err);
         AppError::BadRequestErr("not able to parse contestId".into())
     })?;
-    check_valid_contest(&db, &contest_id).await?;
     if body.question_text.is_none() && body.options.is_none() && body.extra_media_type.is_none() {
         let err = AppError::BadRequestErr("Please provide a field to update".into());
         return Err(err);
@@ -63,7 +62,7 @@ pub async fn update_question_handler(
     }
     if let Some(extra_media_type) = &body.extra_media_type {
         if let Some(extra_media_link) = &body.extra_media_link {
-            update.insert("extraMediaType", extra_media_type.to_string());
+            // update.insert("extraMediaType", extra_media_type.to_string());
             update.insert("extraMediaLink", extra_media_link);
         }
     }
