@@ -15,7 +15,7 @@ use crate::{
 #[double]
 use crate::database::AppDatabase;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum ContestStatus {
     CREATED,
