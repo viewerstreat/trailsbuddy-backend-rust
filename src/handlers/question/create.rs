@@ -44,6 +44,13 @@ pub struct Answer {
     pub extra_media_link: Option<String>,
 }
 
+impl Answer {
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Question {
@@ -141,7 +148,7 @@ pub async fn validate_request(
     Ok(())
 }
 
-fn validate_options(options: &Vec<Answer>) -> Result<(), AppError> {
+pub fn validate_options(options: &Vec<Answer>) -> Result<(), AppError> {
     if options.len() != 4 {
         let err = AppError::BadRequestErr("options array must have 4 values".into());
         return Err(err);
