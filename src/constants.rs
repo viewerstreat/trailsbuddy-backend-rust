@@ -28,6 +28,7 @@ pub const COLL_OTP: &str = "otps";
 pub const COLL_USED_TOKENS: &str = "usedTokens";
 pub const COLL_NOTIFICATIONS: &str = "notifications";
 pub const COLL_CONTESTS: &str = "contests";
+pub const COLL_PLAY_TRACKERS: &str = "playTrackers";
 pub const COLL_WALLETS: &str = "wallets";
 pub const COLL_WALLET_TRANSACTIONS: &str = "walletTransactions";
 

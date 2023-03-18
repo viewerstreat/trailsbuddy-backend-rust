@@ -39,6 +39,7 @@ use crate::{
             mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
         },
         ping::ping_handler,
+        play_tracker::get::get_play_tracker_handler,
         question::{
             create::create_question_handler, delete::delete_question_handler,
             get::get_question_handler, update::update_question_handler,
@@ -142,6 +143,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/addBalanceEnd", post(add_bal_end_handler))
         .route("/withdrawBalInit", post(withdraw_bal_init_handler))
         .route("/withdrawBalanceEnd", post(withdraw_bal_end_handler));
+    let play_tracker_route = Router::new().route("/", get(get_play_tracker_handler));
 
     let api_route = Router::new()
         .nest("/", root_route)
@@ -153,6 +155,7 @@ pub async fn build() -> IntoMakeService<Router> {
         .nest("/question", question_route)
         .nest("/contest", contest_route)
         .nest("/wallet", wallet_route)
+        .nest("/playTracker", play_tracker_route)
         .nest("/upload", upload_route);
 
     // create the app instance with all routes and middleware
