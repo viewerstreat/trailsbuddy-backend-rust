@@ -1,0 +1,201 @@
+use axum::{
+    extract::{Query, State},
+    Json,
+};
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    options::{FindOneAndUpdateOptions, ReturnDocument},
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+use super::model::{Contest, PlayTracker, Question};
+use crate::{
+    constants::*,
+    handlers::{contest::create::ContestStatus, play_tracker::model::PlayTrackerStatus},
+    jwt::JwtClaims,
+    utils::{get_epoch_ts, get_random_num, parse_object_id, AppError},
+};
+
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
+use crate::database::AppDatabase;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReqBody {
+    contest_id: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Response {
+    success: bool,
+    data: PlayTracker,
+    question: Question,
+}
+
+pub async fn start_play_tracker_handler(
+    claims: JwtClaims,
+    State(db): State<Arc<AppDatabase>>,
+    Json(body): Json<ReqBody>,
+) -> Result<Json<Response>, AppError> {
+    let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
+    let (contest_result, play_tracker_result) = tokio::join!(
+        validate_contest(&db, &contest_id),
+        check_play_tracker(&db, &contest_id, claims.id)
+    );
+    let contest = contest_result?;
+    let play_tracker = play_tracker_result?;
+    if play_tracker.status == PlayTrackerStatus::INIT && contest.entry_fee > 0 {
+        let err = "contest not paid yet";
+        let err = AppError::BadRequestErr(err.into());
+        return Err(err);
+    }
+    let answered_questions = play_tracker
+        .answers
+        .as_ref()
+        .and_then(|ans| {
+            let question_nos = ans
+                .iter()
+                .map(|q| q.question.question_no)
+                .collect::<Vec<u32>>();
+            Some(question_nos)
+        })
+        .unwrap_or(vec![]);
+    let all_questions = contest
+        .questions
+        .ok_or(AppError::BadRequestErr("questions not found".into()))?;
+    let all_questions = all_questions
+        .iter()
+        .filter(|q| q.is_active)
+        .collect::<Vec<_>>();
+    let total_question = all_questions.len();
+    if answered_questions.len() == total_question {
+        let err = "all questions answered already";
+        let err = AppError::BadRequestErr(err.into());
+        return Err(err);
+    }
+    if all_questions.iter().all(|q| {
+        answered_questions
+            .iter()
+            .position(|&ans| ans == q.question_no)
+            .is_some()
+    }) {
+        let err = "all questions answered already";
+        let err = AppError::BadRequestErr(err.into());
+        return Err(err);
+    }
+    let random_start = get_random_num(0, total_question as u32) as usize;
+    let question = all_questions
+        .into_iter()
+        .cycle()
+        .skip(random_start)
+        .skip_while(|q| {
+            answered_questions
+                .iter()
+                .position(|&ans| ans == q.question_no)
+                .is_some()
+        })
+        .take(1)
+        .cloned()
+        .next()
+        .ok_or(AppError::AnyError(anyhow::anyhow!(
+            "not able to get question"
+        )))?;
+    let play_tracker = update_play_tracker(&db, &contest_id, claims.id, &play_tracker).await?;
+    let res = Response {
+        success: true,
+        data: play_tracker,
+        question,
+    };
+
+    Ok(Json(res))
+}
+
+pub async fn validate_contest(
+    db: &Arc<AppDatabase>,
+    contest_id: &ObjectId,
+) -> Result<Contest, AppError> {
+    let ts = get_epoch_ts() as i64;
+    let filter = doc! {
+        "_id": contest_id,
+        "status": ContestStatus::ACTIVE.to_bson()?,
+        "startTime": {"$gte": ts },
+        "endTime": {"$lt": ts}
+    };
+    let contest = db
+        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .await?
+        .ok_or(AppError::NotFound("contest not found".into()))?;
+
+    Ok(contest)
+}
+
+pub async fn check_play_tracker(
+    db: &Arc<AppDatabase>,
+    contest_id: &ObjectId,
+    user_id: u32,
+) -> Result<PlayTracker, AppError> {
+    let filter = doc! {
+        "contestId": contest_id,
+        "userId": user_id,
+        "status": {"$ne": PlayTrackerStatus::FINISHED.to_bson()?}
+    };
+    let play_tracker = db
+        .find_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, Some(filter), None)
+        .await?
+        .ok_or(AppError::NotFound("Play Tracker not found".into()))?;
+    Ok(play_tracker)
+}
+
+async fn update_play_tracker(
+    db: &Arc<AppDatabase>,
+    contest_id: &ObjectId,
+    user_id: u32,
+    play_tracker: &PlayTracker,
+) -> Result<PlayTracker, AppError> {
+    let filter = doc! {
+        "contestId": contest_id,
+        "userId": user_id,
+        "status": {"$ne": PlayTrackerStatus::FINISHED.to_bson()?}
+    };
+    let ts = get_epoch_ts() as i64;
+    let mut update = doc! {"updatedTs": ts, "updatedBy": user_id};
+    let update = match play_tracker.status {
+        PlayTrackerStatus::INIT => {
+            update.insert("startTs", ts);
+            update.insert("status", PlayTrackerStatus::STARTED.to_bson()?);
+            doc! {"$set": update}
+        }
+        PlayTrackerStatus::PAID => {
+            update.insert("startTs", ts);
+            update.insert("status", PlayTrackerStatus::STARTED.to_bson()?);
+            doc! {"$set": update}
+        }
+        PlayTrackerStatus::STARTED => {
+            doc! {
+                "$push": {"resumeTs": ts},
+                "$set": update
+            }
+        }
+        _ => {
+            return Err(AppError::BadRequestErr(
+                "playTracker is not in correct status".into(),
+            ))
+        }
+    };
+
+    let options = FindOneAndUpdateOptions::builder()
+        .return_document(Some(ReturnDocument::After))
+        .build();
+    let options = Some(options);
+    let play_tracker = db
+        .find_one_and_update::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, filter, update, options)
+        .await?
+        .ok_or(AppError::AnyError(anyhow::anyhow!(
+            "not able to update playTracker"
+        )))?;
+    Ok(play_tracker)
+}

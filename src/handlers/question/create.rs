@@ -17,7 +17,7 @@ use crate::{
 #[double]
 use crate::database::AppDatabase;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ExtraMediaType {
     Image,

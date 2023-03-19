@@ -6,10 +6,10 @@ use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::model::PlayTracker;
+use super::model::{Contest, PlayTracker};
 use crate::{
     constants::*,
-    handlers::{contest::create::ContestStatus, question::create::Contest},
+    handlers::contest::create::ContestStatus,
     jwt::JwtClaims,
     utils::{get_epoch_ts, parse_object_id, AppError},
 };

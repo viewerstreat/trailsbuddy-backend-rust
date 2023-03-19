@@ -1,7 +1,52 @@
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-use crate::{handlers::question::create::Question, utils::get_epoch_ts};
+use crate::{
+    handlers::{contest::create::ContestStatus, question::create::ExtraMediaType},
+    utils::get_epoch_ts,
+};
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Contest {
+    pub title: String,
+    pub entry_fee: u32,
+    pub entry_fee_max_bonus_money: u32,
+    pub start_time: u64,
+    pub end_time: u64,
+    pub status: Option<ContestStatus>,
+    pub questions: Option<Vec<Question>>,
+}
+
+
+
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Question {
+    pub question_no: u32,
+    pub question_text: String,
+    pub options: Vec<Answer>,
+    pub is_active: bool,
+    pub extra_media_type: Option<ExtraMediaType>,
+    pub extra_media_link: Option<String>,
+}
+
+
+
+#[derive(Debug, Clone,Deserialize, Serialize )]
+#[serde(rename_all = "camelCase")]
+pub struct Answer {
+    pub option_id: u32,
+    pub option_text: String,
+    pub extra_media_type: Option<ExtraMediaType>,
+    pub extra_media_link: Option<String>,
+}
+
+
+
+
+
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -24,33 +69,33 @@ impl PlayTrackerStatus {
 #[serde(rename_all = "camelCase")]
 pub struct GivenAnswer {
     #[serde(flatten)]
-    question: Question,
-    selected_option_id: u32,
+    pub question: Question,
+    pub selected_option_id: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayTracker {
-    user_id: u32,
-    contest_id: String,
-    status: PlayTrackerStatus,
-    init_ts: Option<u64>,
-    start_ts: Option<u64>,
-    finish_ts: Option<u64>,
-    resume_ts: Option<Vec<u64>>,
-    paid_ts: Option<u64>,
-    wallet_transaction_id: Option<String>,
-    total_questions: usize,
-    total_answered: usize,
-    score: Option<u32>,
-    curr_question_no: Option<u32>,
-    answers: Option<Vec<GivenAnswer>>,
-    time_taken: Option<u32>,
-    rank: Option<u32>,
-    created_ts: Option<u64>,
-    created_by: Option<u32>,
-    updated_ts: Option<u64>,
-    updated_by: Option<u32>,
+    pub user_id: u32,
+    pub contest_id: String,
+    pub status: PlayTrackerStatus,
+    pub init_ts: Option<u64>,
+    pub start_ts: Option<u64>,
+    pub finish_ts: Option<u64>,
+    pub resume_ts: Option<Vec<u64>>,
+    pub paid_ts: Option<u64>,
+    pub wallet_transaction_id: Option<String>,
+    pub total_questions: usize,
+    pub total_answered: usize,
+    pub score: Option<u32>,
+    pub curr_question_no: Option<u32>,
+    pub answers: Option<Vec<GivenAnswer>>,
+    pub time_taken: Option<u32>,
+    pub rank: Option<u32>,
+    pub created_ts: Option<u64>,
+    pub created_by: Option<u32>,
+    pub updated_ts: Option<u64>,
+    pub updated_by: Option<u32>,
 }
 
 impl PlayTracker {
