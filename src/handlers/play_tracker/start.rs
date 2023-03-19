@@ -53,58 +53,8 @@ pub async fn start_play_tracker_handler(
         let err = AppError::BadRequestErr(err.into());
         return Err(err);
     }
-    let answered_questions = play_tracker
-        .answers
-        .as_ref()
-        .and_then(|ans| {
-            let question_nos = ans
-                .iter()
-                .map(|q| q.question.question_no)
-                .collect::<Vec<u32>>();
-            Some(question_nos)
-        })
-        .unwrap_or(vec![]);
-    let all_questions = contest
-        .questions
-        .ok_or(AppError::BadRequestErr("questions not found".into()))?;
-    let all_questions = all_questions
-        .iter()
-        .filter(|q| q.is_active)
-        .collect::<Vec<_>>();
-    let total_question = all_questions.len();
-    if answered_questions.len() == total_question {
-        let err = "all questions answered already";
-        let err = AppError::BadRequestErr(err.into());
-        return Err(err);
-    }
-    if all_questions.iter().all(|q| {
-        answered_questions
-            .iter()
-            .position(|&ans| ans == q.question_no)
-            .is_some()
-    }) {
-        let err = "all questions answered already";
-        let err = AppError::BadRequestErr(err.into());
-        return Err(err);
-    }
-    let random_start = get_random_num(0, total_question as u32) as usize;
-    let question = all_questions
-        .into_iter()
-        .cycle()
-        .skip(random_start)
-        .skip_while(|q| {
-            answered_questions
-                .iter()
-                .position(|&ans| ans == q.question_no)
-                .is_some()
-        })
-        .take(1)
-        .cloned()
-        .next()
-        .ok_or(AppError::AnyError(anyhow::anyhow!(
-            "not able to get question"
-        )))?;
     let play_tracker = update_play_tracker(&db, &contest_id, claims.id, &play_tracker).await?;
+    let question = get_question(&contest, &play_tracker)?;
     let res = Response {
         success: true,
         data: play_tracker,
@@ -112,6 +62,47 @@ pub async fn start_play_tracker_handler(
     };
 
     Ok(Json(res))
+}
+
+fn get_question(contest: &Contest, play_tracker: &PlayTracker) -> Result<Question, AppError> {
+    let answered_questions = play_tracker
+        .answers
+        .as_ref()
+        .and_then(|ans| {
+            Some(
+                ans.iter()
+                    .map(|q| q.question.question_no)
+                    .collect::<Vec<u32>>(),
+            )
+        })
+        .unwrap_or(vec![]);
+    let all_questions = contest
+        .questions
+        .as_ref()
+        .ok_or(AppError::BadRequestErr("questions not found".into()))?;
+    let all_questions = all_questions
+        .into_iter()
+        .filter(|q| q.is_active)
+        .collect::<Vec<_>>();
+    let total_question = all_questions.len();
+    let is_answered =
+        |q: &&Question| -> bool { answered_questions.iter().any(|&ans| ans == q.question_no) };
+    if answered_questions.len() == total_question || all_questions.iter().all(is_answered) {
+        let err = "all questions answered already";
+        let err = AppError::BadRequestErr(err.into());
+        return Err(err);
+    }
+    let random_start = get_random_num(0, total_question);
+    let question = all_questions
+        .into_iter()
+        .cycle()
+        .skip(random_start)
+        .skip_while(is_answered)
+        .take(1)
+        .cloned()
+        .next()
+        .ok_or(AppError::unknown_error())?;
+    Ok(question)
 }
 
 pub async fn validate_contest(
@@ -164,12 +155,7 @@ async fn update_play_tracker(
     let ts = get_epoch_ts() as i64;
     let mut update = doc! {"updatedTs": ts, "updatedBy": user_id};
     let update = match play_tracker.status {
-        PlayTrackerStatus::INIT => {
-            update.insert("startTs", ts);
-            update.insert("status", PlayTrackerStatus::STARTED.to_bson()?);
-            doc! {"$set": update}
-        }
-        PlayTrackerStatus::PAID => {
+        PlayTrackerStatus::INIT | PlayTrackerStatus::PAID => {
             update.insert("startTs", ts);
             update.insert("status", PlayTrackerStatus::STARTED.to_bson()?);
             doc! {"$set": update}
@@ -181,9 +167,9 @@ async fn update_play_tracker(
             }
         }
         _ => {
-            return Err(AppError::BadRequestErr(
-                "playTracker is not in correct status".into(),
-            ))
+            let err = "playTracker is not in correct status";
+            let err = AppError::BadRequestErr(err.into());
+            return Err(err);
         }
     };
 

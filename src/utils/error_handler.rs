@@ -13,6 +13,12 @@ pub enum AppError {
     AnyError(anyhow::Error),
 }
 
+impl AppError {
+    pub fn unknown_error() -> Self {
+        Self::AnyError(anyhow::anyhow!("Unknown error"))
+    }
+}
+
 impl<E: Into<anyhow::Error>> From<E> for AppError {
     fn from(err: E) -> Self {
         Self::AnyError(err.into())

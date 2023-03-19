@@ -1,12 +1,11 @@
 use axum::http::HeaderMap;
 use mongodb::bson::oid::ObjectId;
-use rand::{thread_rng, Rng};
+use rand::{distributions::uniform::SampleUniform, thread_rng, Rng};
 use serde::{Deserialize, Deserializer};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{constants::*, jwt::JWT_KEYS};
-
 use super::AppError;
+use crate::{constants::*, jwt::JWT_KEYS};
 
 /// Get EPOCH timestamp in seconds
 pub fn get_epoch_ts() -> u64 {
@@ -29,7 +28,10 @@ pub fn generate_otp(len: u32) -> String {
 
 /// Generate a random number in a given range
 /// panics if the lower bound is greater than the higher bound
-pub fn get_random_num(low: u32, high: u32) -> u32 {
+pub fn get_random_num<T>(low: T, high: T) -> T
+where
+    T: PartialEq + PartialOrd + SampleUniform,
+{
     assert!(low < high);
     let mut rng = thread_rng();
     rng.gen_range(low..high)

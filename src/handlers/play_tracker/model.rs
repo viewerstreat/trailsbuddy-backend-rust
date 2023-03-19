@@ -18,9 +18,6 @@ pub struct Contest {
     pub questions: Option<Vec<Question>>,
 }
 
-
-
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Question {
@@ -32,9 +29,7 @@ pub struct Question {
     pub extra_media_link: Option<String>,
 }
 
-
-
-#[derive(Debug, Clone,Deserialize, Serialize )]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Answer {
     pub option_id: u32,
@@ -42,11 +37,6 @@ pub struct Answer {
     pub extra_media_type: Option<ExtraMediaType>,
     pub extra_media_link: Option<String>,
 }
-
-
-
-
-
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -88,7 +78,6 @@ pub struct PlayTracker {
     pub total_questions: usize,
     pub total_answered: usize,
     pub score: Option<u32>,
-    pub curr_question_no: Option<u32>,
     pub answers: Option<Vec<GivenAnswer>>,
     pub time_taken: Option<u32>,
     pub rank: Option<u32>,
@@ -114,7 +103,6 @@ impl PlayTracker {
             total_questions,
             total_answered: 0,
             score: None,
-            curr_question_no: None,
             answers: None,
             time_taken: None,
             rank: None,
