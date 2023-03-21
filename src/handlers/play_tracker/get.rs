@@ -75,8 +75,8 @@ pub async fn validate_contest(
     let filter = doc! {
         "_id": contest_id,
         "status": ContestStatus::ACTIVE.to_bson()?,
-        "startTime": {"$gte": ts },
-        "endTime": {"$lt": ts}
+        "startTime": {"$lt": ts },
+        "endTime": {"$gt": ts}
     };
     let contest = db
         .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
@@ -91,7 +91,7 @@ pub async fn check_play_tracker(
     contest_id: &ObjectId,
     user_id: u32,
 ) -> Result<Option<PlayTracker>, AppError> {
-    let filter = doc! {"_id": contest_id, "userId": user_id};
+    let filter = doc! {"contestId": contest_id, "userId": user_id};
     let play_tracker = db
         .find_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, Some(filter), None)
         .await?;

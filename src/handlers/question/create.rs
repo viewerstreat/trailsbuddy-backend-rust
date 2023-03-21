@@ -31,7 +31,7 @@ impl ExtraMediaType {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Answer {
     #[validate(range(min = 1, max = 4))]
@@ -51,7 +51,7 @@ impl Answer {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Question {
     pub question_no: u32,

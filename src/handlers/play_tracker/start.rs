@@ -12,7 +12,7 @@ use std::sync::Arc;
 use super::model::{Contest, PlayTracker, Question};
 use crate::{
     constants::*,
-    handlers::{contest::create::ContestStatus, play_tracker::model::PlayTrackerStatus},
+    handlers::play_tracker::{get::validate_contest, model::PlayTrackerStatus},
     jwt::JwtClaims,
     utils::{get_epoch_ts, get_random_num, parse_object_id, AppError},
 };
@@ -26,6 +26,12 @@ use crate::database::AppDatabase;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReqBody {
+    contest_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Params {
     contest_id: String,
 }
 
@@ -54,6 +60,28 @@ pub async fn start_play_tracker_handler(
         return Err(err);
     }
     let play_tracker = update_play_tracker(&db, &contest_id, claims.id, &play_tracker).await?;
+    let question = get_question(&contest, &play_tracker)?;
+    let res = Response {
+        success: true,
+        data: play_tracker,
+        question,
+    };
+
+    Ok(Json(res))
+}
+
+pub async fn get_next_ques_handler(
+    claims: JwtClaims,
+    State(db): State<Arc<AppDatabase>>,
+    Query(params): Query<Params>,
+) -> Result<Json<Response>, AppError> {
+    let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
+    let (contest_result, play_tracker_result) = tokio::join!(
+        validate_contest(&db, &contest_id),
+        check_play_tracker(&db, &contest_id, claims.id)
+    );
+    let contest = contest_result?;
+    let play_tracker = play_tracker_result?;
     let question = get_question(&contest, &play_tracker)?;
     let res = Response {
         success: true,
@@ -103,25 +131,6 @@ fn get_question(contest: &Contest, play_tracker: &PlayTracker) -> Result<Questio
         .next()
         .ok_or(AppError::unknown_error())?;
     Ok(question)
-}
-
-pub async fn validate_contest(
-    db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
-) -> Result<Contest, AppError> {
-    let ts = get_epoch_ts() as i64;
-    let filter = doc! {
-        "_id": contest_id,
-        "status": ContestStatus::ACTIVE.to_bson()?,
-        "startTime": {"$gte": ts },
-        "endTime": {"$lt": ts}
-    };
-    let contest = db
-        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
-        .await?
-        .ok_or(AppError::NotFound("contest not found".into()))?;
-
-    Ok(contest)
 }
 
 pub async fn check_play_tracker(

@@ -39,7 +39,12 @@ use crate::{
             mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
         },
         ping::ping_handler,
-        play_tracker::{get::get_play_tracker_handler, start::start_play_tracker_handler},
+        play_tracker::{
+            answer::answer_play_tracker_handler,
+            finish::finish_play_tracker_handler,
+            get::get_play_tracker_handler,
+            start::{get_next_ques_handler, start_play_tracker_handler},
+        },
         question::{
             create::create_question_handler, delete::delete_question_handler,
             get::get_question_handler, update::update_question_handler,
@@ -145,7 +150,10 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/withdrawBalanceEnd", post(withdraw_bal_end_handler));
     let play_tracker_route = Router::new()
         .route("/", get(get_play_tracker_handler))
-        .route("/start", post(start_play_tracker_handler));
+        .route("/start", post(start_play_tracker_handler))
+        .route("/getNextQues", get(get_next_ques_handler))
+        .route("/answer", post(answer_play_tracker_handler))
+        .route("/finish", post(finish_play_tracker_handler));
 
     let api_route = Router::new()
         .nest("/", root_route)

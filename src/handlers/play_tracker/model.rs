@@ -38,6 +38,29 @@ pub struct Answer {
     pub extra_media_link: Option<String>,
 }
 
+impl From<&crate::handlers::question::create::Question> for Question {
+    fn from(value: &crate::handlers::question::create::Question) -> Self {
+        let options = value
+            .options
+            .iter()
+            .map(|opt| Answer {
+                option_id: opt.option_id,
+                option_text: opt.option_text.clone(),
+                extra_media_type: opt.extra_media_type.clone(),
+                extra_media_link: opt.extra_media_link.clone(),
+            })
+            .collect::<Vec<_>>();
+        Self {
+            question_no: value.question_no,
+            question_text: value.question_text.clone(),
+            options,
+            is_active: value.is_active,
+            extra_media_type: value.extra_media_type.clone(),
+            extra_media_link: value.extra_media_link.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum PlayTrackerStatus {
@@ -59,8 +82,15 @@ impl PlayTrackerStatus {
 #[serde(rename_all = "camelCase")]
 pub struct GivenAnswer {
     #[serde(flatten)]
-    pub question: Question,
+    pub question: crate::handlers::question::create::Question,
     pub selected_option_id: u32,
+}
+
+impl GivenAnswer {
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
