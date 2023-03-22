@@ -61,7 +61,7 @@ impl From<&crate::handlers::question::create::Question> for Question {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum PlayTrackerStatus {
     INIT,
@@ -105,8 +105,6 @@ pub struct PlayTracker {
     pub resume_ts: Option<Vec<u64>>,
     pub paid_ts: Option<u64>,
     pub wallet_transaction_id: Option<String>,
-    pub total_questions: usize,
-    pub total_answered: usize,
     pub score: Option<u32>,
     pub answers: Option<Vec<GivenAnswer>>,
     pub time_taken: Option<u32>,
@@ -118,7 +116,7 @@ pub struct PlayTracker {
 }
 
 impl PlayTracker {
-    pub fn new(user_id: u32, contest_id: &str, total_questions: usize) -> Self {
+    pub fn new(user_id: u32, contest_id: &str) -> Self {
         let ts = get_epoch_ts();
         Self {
             user_id,
@@ -130,8 +128,6 @@ impl PlayTracker {
             resume_ts: None,
             paid_ts: None,
             wallet_transaction_id: None,
-            total_questions,
-            total_answered: 0,
             score: None,
             answers: None,
             time_taken: None,

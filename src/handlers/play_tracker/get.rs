@@ -50,21 +50,23 @@ pub async fn get_play_tracker_handler(
         return Ok(Json(res));
     }
     let contest = contest_result?;
-    let total_question = contest
-        .questions
-        .and_then(|questions| {
-            let count = questions.iter().filter(|q| q.is_active).count();
-            Some(count)
-        })
-        .unwrap_or(0);
-    let play_tracker = PlayTracker::new(claims.id, &params.contest_id, total_question);
-    db.insert_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, &play_tracker, None)
-        .await?;
+    let play_tracker = insert_new_play_tracker(claims.id, &params.contest_id, &db).await?;
     let res = Response {
         success: true,
         data: play_tracker,
     };
     Ok(Json(res))
+}
+
+pub async fn insert_new_play_tracker(
+    user_id: u32,
+    contest_id: &str,
+    db: &Arc<AppDatabase>,
+) -> Result<PlayTracker, AppError> {
+    let play_tracker = PlayTracker::new(user_id, contest_id);
+    db.insert_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, &play_tracker, None)
+        .await?;
+    Ok(play_tracker)
 }
 
 pub async fn validate_contest(

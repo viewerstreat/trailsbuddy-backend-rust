@@ -60,6 +60,7 @@ use crate::{
         wallet::{
             add_bal::{add_bal_end_handler, add_bal_init_handler},
             get_bal::get_bal_handler,
+            pay_contest::pay_contest_handler,
             withdraw_bal::{withdraw_bal_end_handler, withdraw_bal_init_handler},
         },
     },
@@ -147,7 +148,8 @@ pub async fn build() -> IntoMakeService<Router> {
         .route("/addBalanceInit", post(add_bal_init_handler))
         .route("/addBalanceEnd", post(add_bal_end_handler))
         .route("/withdrawBalInit", post(withdraw_bal_init_handler))
-        .route("/withdrawBalanceEnd", post(withdraw_bal_end_handler));
+        .route("/withdrawBalanceEnd", post(withdraw_bal_end_handler))
+        .route("/payContest", post(pay_contest_handler));
     let play_tracker_route = Router::new()
         .route("/", get(get_play_tracker_handler))
         .route("/start", post(start_play_tracker_handler))

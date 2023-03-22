@@ -150,6 +150,34 @@ impl WalletTransaction {
         }
     }
 
+    pub fn pay_for_contest_trans(
+        user_id: u32,
+        contest_id: &str,
+        real: u64,
+        bonus: u64,
+        balance_before: Money,
+        balance_after: Money,
+    ) -> Self {
+        let ts = get_epoch_ts();
+        let amount = Money::new(real, bonus);
+        Self {
+            user_id,
+            transaction_type: WalltetTransactionType::PayForContest,
+            amount,
+            status: WalletTransactionStatus::Completed,
+            balance_before,
+            balance_after: Some(balance_after),
+            tracking_id: None,
+            receiver_upi_id: None,
+            remarks: Some(format!("Pay for contest: {}", contest_id)),
+            error_reason: None,
+            created_ts: Some(ts),
+            created_by: Some(user_id),
+            updated_ts: None,
+            updated_by: None,
+        }
+    }
+
     pub fn user_id(&self) -> u32 {
         self.user_id
     }
