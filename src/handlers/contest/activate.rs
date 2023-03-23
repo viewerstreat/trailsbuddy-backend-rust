@@ -1,11 +1,11 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::bson::doc;
 use mongodb::bson::serde_helpers::hex_string_as_object_id;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
+use super::create::ContestStatus;
 use crate::handlers::question::create::Question;
 use crate::{
     constants::*,
@@ -13,10 +13,11 @@ use crate::{
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-#[double]
-use crate::database::AppDatabase;
+#[cfg(test)]
+use mockall_double::double;
 
-use super::create::ContestStatus;
+#[cfg_attr(test, double)]
+use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

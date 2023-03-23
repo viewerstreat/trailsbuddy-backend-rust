@@ -2,14 +2,16 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use mockall_double::double;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{constants::*, jwt::JwtClaims, utils::AppError};
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 use super::model::Movie;

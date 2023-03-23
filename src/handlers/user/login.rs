@@ -5,7 +5,6 @@ use base64::{
     Engine as _,
 };
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use mockall_double::double;
 use mongodb::{
     bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
@@ -22,7 +21,10 @@ use crate::{
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

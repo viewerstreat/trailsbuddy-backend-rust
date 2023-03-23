@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -12,7 +11,10 @@ use crate::{
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 fn validate_tags(tags: &Vec<String>) -> Result<(), ValidationError> {

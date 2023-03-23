@@ -2,22 +2,23 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
+use super::user::{model::User, otp::Otp};
 use crate::{
     constants::*,
     jwt::JWT_KEYS,
     utils::{get_epoch_ts, validate_phonenumber, AppError},
 };
 
-use super::user::{model::User, otp::Otp};
+#[cfg(test)]
+use mockall_double::double;
 
-#[double]
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

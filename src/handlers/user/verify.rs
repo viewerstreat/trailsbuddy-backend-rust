@@ -2,7 +2,6 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
@@ -15,10 +14,13 @@ use crate::{
     utils::{validate_phonenumber, AppError},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
-#[double]
+#[cfg_attr(test, double)]
 use super::otp::otp_inner;
 
 #[derive(Debug, Deserialize, Validate)]

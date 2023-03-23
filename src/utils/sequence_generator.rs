@@ -1,4 +1,3 @@
-use mockall_double::double;
 use mongodb::{
     bson::{doc, Document},
     options::{FindOneAndUpdateOptions, ReturnDocument},
@@ -7,7 +6,10 @@ use std::sync::Arc;
 
 use crate::constants::*;
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 /// Generates the next val for a given sequence id

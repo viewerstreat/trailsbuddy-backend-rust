@@ -1,5 +1,4 @@
 use axum::{extract::State, http::StatusCode, Json};
-use mockall_double::double;
 use mongodb::{
     bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
@@ -15,10 +14,13 @@ use crate::{
     utils::{get_epoch_ts, validate_phonenumber, AppError, ValidatedBody},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
-#[double]
+#[cfg_attr(test, double)]
 use super::helper::helper_inner;
 
 #[derive(Debug, Default, Clone, Deserialize, Validate)]

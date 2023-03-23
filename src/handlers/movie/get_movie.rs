@@ -3,7 +3,6 @@ use axum::{
     http::HeaderMap,
     Json,
 };
-use mockall_double::double;
 use mongodb::bson::{doc, oid::ObjectId, Document};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -13,7 +12,10 @@ use crate::{
     utils::{error_handler::AppError, get_epoch_ts, get_user_id_from_token},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]

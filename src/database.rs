@@ -42,8 +42,8 @@ impl AppDatabase {
         client_options.connect_timeout = Some(timeout);
         // create the client and return Result object
         let client = Client::with_options(client_options)?;
-        let app_db = Self(client);
-        Ok(app_db)
+        let app_database = Self(client);
+        Ok(app_database)
     }
 
     pub async fn find_one<T>(

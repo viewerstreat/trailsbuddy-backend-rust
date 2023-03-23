@@ -1,5 +1,4 @@
 use axum::{extract::State, http::StatusCode, Json};
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -12,13 +11,16 @@ use crate::{
     utils::{get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError, ValidatedBody},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
-#[double]
+#[cfg_attr(test, double)]
 use super::helper::helper_inner;
 
-#[double]
+#[cfg_attr(test, double)]
 use super::otp::otp_inner;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]

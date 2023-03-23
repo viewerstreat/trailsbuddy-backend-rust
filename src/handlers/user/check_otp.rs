@@ -5,7 +5,6 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -20,7 +19,10 @@ use crate::{
     utils::{get_epoch_ts, validate_phonenumber, AppError},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]

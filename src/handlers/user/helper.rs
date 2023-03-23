@@ -1,20 +1,21 @@
-use helper_inner::{check_uniq_email, check_uniq_phone};
-use mockall_double::double;
-
 #[cfg(test)]
 use mockall::automock;
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[cfg_attr(test, automock)]
 pub mod helper_inner {
+    use mongodb::bson::{doc, Document};
     use std::sync::Arc;
 
+    #[cfg(test)]
     use mockall_double::double;
-    use mongodb::bson::{doc, Document};
 
-    #[double]
+    #[cfg_attr(test, double)]
     use crate::database::AppDatabase;
     use crate::{
         constants::*,

@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
@@ -8,14 +7,18 @@ use std::{
     sync::Arc,
 };
 
-#[double]
-use crate::database::AppDatabase;
 use crate::{
     constants::*,
     handlers::clip::model::LikesEntry,
     jwt::JwtClaims,
     utils::{get_epoch_ts, AppError},
 };
+
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
+use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,4 +1,3 @@
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -9,7 +8,10 @@ use crate::{
 };
 use otp_inner::generate_send_otp;
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 use super::model::User;

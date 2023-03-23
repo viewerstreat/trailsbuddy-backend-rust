@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::{
     bson::{doc, oid::ObjectId},
     options::{FindOneAndUpdateOptions, ReturnDocument},
@@ -15,7 +14,10 @@ use crate::{
     utils::{get_epoch_ts, AppError},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

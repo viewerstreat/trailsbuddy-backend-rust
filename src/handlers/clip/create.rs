@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::Validate;
@@ -11,7 +10,10 @@ use crate::{
     utils::{AppError, ValidatedBody},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]

@@ -5,7 +5,6 @@ use axum::{
     routing::{get, post, IntoMakeService},
     Router,
 };
-use mockall_double::double;
 use std::{sync::Arc, time::Duration};
 use tower::ServiceBuilder;
 use tower_http::{
@@ -66,7 +65,10 @@ use crate::{
     },
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 /// Initializes the app with all routes and middlewares

@@ -1,21 +1,22 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::bson::doc;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
+use super::model::User;
 use crate::{
     constants::*,
     jwt::JwtClaims,
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-#[double]
-use crate::database::AppDatabase;
+#[cfg(test)]
+use mockall_double::double;
 
-use super::model::User;
+#[cfg_attr(test, double)]
+use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct ReqBody {

@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::bson::{doc, Bson, Document};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
@@ -12,7 +11,10 @@ use crate::{
     utils::{deserialize_helper, get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

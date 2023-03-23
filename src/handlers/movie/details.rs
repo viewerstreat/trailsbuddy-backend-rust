@@ -2,7 +2,6 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use mockall_double::double;
 use mongodb::bson::{doc, oid::ObjectId, serde_helpers::hex_string_as_object_id};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -13,7 +12,10 @@ use crate::{
     utils::AppError,
 };
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

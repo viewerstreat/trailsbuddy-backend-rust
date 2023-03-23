@@ -1,5 +1,4 @@
 use axum::{extract::State, Json};
-use mockall_double::double;
 use mongodb::{bson::doc, options::FindOptions};
 use serde::Serialize;
 use std::sync::Arc;
@@ -7,7 +6,10 @@ use std::sync::Arc;
 use super::model::User;
 use crate::{constants::*, utils::AppError};
 
-#[double]
+#[cfg(test)]
+use mockall_double::double;
+
+#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]
