@@ -72,7 +72,7 @@ use mockall_double::double;
 use crate::database::AppDatabase;
 
 /// Initializes the app with all routes and middlewares
-pub async fn build() -> IntoMakeService<Router> {
+pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
     tracing::debug!("Initializing the app");
     // create a response header layer for middleware
     let server_header_value = HeaderValue::from_static("trailsbuddy-backend-rust");
@@ -93,11 +93,6 @@ pub async fn build() -> IntoMakeService<Router> {
         .layer(trace_layer)
         .compression()
         .into_inner();
-    // create database client
-    let db_client = AppDatabase::new()
-        .await
-        .expect("Unable to accquire database client");
-    let db_client = Arc::new(db_client);
 
     let root_route = Router::new()
         .route("/ping", get(ping_handler))

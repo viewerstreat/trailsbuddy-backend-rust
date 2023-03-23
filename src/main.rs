@@ -1,6 +1,7 @@
+use database::AppDatabase;
 use dotenvy::dotenv;
 use jobs::spawn_all_jobs;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod app;
@@ -15,9 +16,14 @@ mod utils;
 async fn main() {
     // import .env file
     dotenv().ok();
+    // create database client
+    let db_client = AppDatabase::new()
+        .await
+        .expect("Unable to accquire database client");
+    let db_client = Arc::new(db_client);
     initialize_logging();
-    spawn_all_jobs();
-    start_server().await;
+    spawn_all_jobs(db_client.clone());
+    start_server(db_client).await;
 }
 
 fn initialize_logging() {
@@ -32,14 +38,14 @@ fn initialize_logging() {
         .init();
 }
 
-async fn start_server() {
+async fn start_server(db_client: Arc<AppDatabase>) {
     // read the port number from env variable
     let port = std::env::var("PORT").unwrap_or_default();
     let port = port.parse::<u16>().unwrap_or(3000);
     // build the socket address
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     // create the app instance
-    let app = app::build().await;
+    let app = app::build(db_client).await;
     tracing::debug!("Starting the app in: {addr}");
     // start serving the app in the socket address
     axum::Server::bind(&addr).serve(app).await.unwrap();
