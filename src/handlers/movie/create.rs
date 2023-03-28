@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::{Validate, ValidationError};
 
-use super::model::{Movie, MovieRespData};
 use crate::{
     constants::*,
     jwt::JwtClaims,
+    models::movie::{Movie, MovieRespData},
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 

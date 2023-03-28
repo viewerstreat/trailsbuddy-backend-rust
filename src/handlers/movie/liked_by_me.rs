@@ -6,11 +6,9 @@ use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{constants::*, jwt::JwtClaims, utils::AppError};
+use crate::{constants::*, jwt::JwtClaims, models::movie::Movie, utils::AppError};
 
 use crate::database::AppDatabase;
-
-use super::model::Movie;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

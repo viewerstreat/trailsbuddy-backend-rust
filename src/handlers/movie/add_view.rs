@@ -9,13 +9,11 @@ use std::sync::Arc;
 use crate::{
     constants::*,
     jwt::JwtClaims,
-    models::clip::ViewsEntry,
+    models::{clip::ViewsEntry, movie::Movie},
     utils::{get_epoch_ts, AppError},
 };
 
 use crate::database::AppDatabase;
-
-use super::model::Movie;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

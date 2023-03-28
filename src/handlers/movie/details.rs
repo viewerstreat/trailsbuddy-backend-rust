@@ -2,15 +2,11 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use mongodb::bson::{doc, oid::ObjectId, serde_helpers::hex_string_as_object_id};
+use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{
-    constants::*,
-    models::clip::{LikesEntry, ViewsEntry},
-    utils::AppError,
-};
+use crate::{constants::*, models::movie::MovieDetails, utils::AppError};
 
 use crate::database::AppDatabase;
 
@@ -23,30 +19,7 @@ pub struct Params {
 #[derive(Debug, Serialize)]
 pub struct Response {
     success: bool,
-    data: Movie,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Movie {
-    #[serde(rename = "_id")]
-    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub tags: Option<Vec<String>>,
-    pub video_url: String,
-    pub banner_image_url: String,
-    pub sponsored_by: Option<String>,
-    pub sponsored_by_logo: Option<String>,
-    pub release_date: Option<u64>,
-    pub release_outlets: Option<Vec<String>>,
-    pub movie_promotion_expiry: Option<u64>,
-    pub likes: Option<Vec<LikesEntry>>,
-    pub views: Option<Vec<ViewsEntry>>,
-    pub is_active: bool,
-    pub view_count: Option<u32>,
-    pub like_count: Option<u32>,
+    data: MovieDetails,
 }
 
 pub async fn movie_details_handler(
@@ -59,7 +32,7 @@ pub async fn movie_details_handler(
     })?;
     let filter = Some(doc! {"_id": oid});
     let mut movie = db
-        .find_one::<Movie>(DB_NAME, COLL_MOVIES, filter, None)
+        .find_one::<MovieDetails>(DB_NAME, COLL_MOVIES, filter, None)
         .await?
         .ok_or(AppError::NotFound("movie not found".into()))?;
     let view_count = movie
