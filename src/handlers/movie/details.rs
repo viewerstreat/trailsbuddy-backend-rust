@@ -8,14 +8,10 @@ use std::sync::Arc;
 
 use crate::{
     constants::*,
-    handlers::clip::model::{LikesEntry, ViewsEntry},
+    models::clip::{LikesEntry, ViewsEntry},
     utils::AppError,
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

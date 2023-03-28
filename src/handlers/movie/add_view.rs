@@ -6,19 +6,16 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::model::Movie;
 use crate::{
     constants::*,
-    handlers::clip::model::ViewsEntry,
     jwt::JwtClaims,
+    models::clip::ViewsEntry,
     utils::{get_epoch_ts, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
+
+use super::model::Movie;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

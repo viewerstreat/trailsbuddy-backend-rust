@@ -10,6 +10,7 @@ mod database;
 mod handlers;
 mod jobs;
 mod jwt;
+mod models;
 mod utils;
 
 #[tokio::main]

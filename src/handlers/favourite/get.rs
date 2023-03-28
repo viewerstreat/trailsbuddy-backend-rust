@@ -9,10 +9,6 @@ use std::sync::Arc;
 use super::create::MediaType;
 use crate::{constants::*, jwt::JwtClaims, utils::error_handler::AppError};
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]

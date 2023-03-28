@@ -9,15 +9,11 @@ use std::{
 
 use crate::{
     constants::*,
-    handlers::clip::model::LikesEntry,
     jwt::JwtClaims,
+    models::clip::LikesEntry,
     utils::{get_epoch_ts, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

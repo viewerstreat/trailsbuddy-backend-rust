@@ -12,10 +12,6 @@ use crate::{
     utils::{error_handler::AppError, get_epoch_ts, get_user_id_from_token},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]

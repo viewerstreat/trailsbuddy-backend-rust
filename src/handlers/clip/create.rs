@@ -3,17 +3,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::model::{ClipRespData, Clips};
 use crate::{
     constants::*,
     jwt::JwtClaims,
+    models::clip::{ClipRespData, Clips},
     utils::{AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]

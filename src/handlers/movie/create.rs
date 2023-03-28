@@ -11,10 +11,6 @@ use crate::{
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 fn validate_tags(tags: &Vec<String>) -> Result<(), ValidationError> {

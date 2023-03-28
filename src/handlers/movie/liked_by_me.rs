@@ -8,10 +8,6 @@ use std::sync::Arc;
 
 use crate::{constants::*, jwt::JwtClaims, utils::AppError};
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 use super::model::Movie;

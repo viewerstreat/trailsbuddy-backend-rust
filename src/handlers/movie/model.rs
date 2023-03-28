@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::handlers::clip::model::{LikesEntry, ViewsEntry};
+use crate::models::clip::{LikesEntry, ViewsEntry};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
