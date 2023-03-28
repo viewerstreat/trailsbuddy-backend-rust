@@ -1,8 +1,12 @@
 use axum::http::HeaderMap;
 use mongodb::bson::oid::ObjectId;
 use rand::{distributions::uniform::SampleUniform, thread_rng, Rng};
+use regex::Regex;
 use serde::{Deserialize, Deserializer};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use super::AppError;
 use crate::{constants::*, jwt::JWT_KEYS};
@@ -70,6 +74,29 @@ where
         None => Ok(None),
         Some(val) => Ok(Some(val.to_hex())),
     }
+}
+
+/// replace placeholder variables from the template text
+/// placeholders are of patters {{variable}}
+pub fn replace_placeholders(s: &str, options: HashMap<String, String>) -> anyhow::Result<String> {
+    let re = Regex::new(r"\{\{(\w+)\}\}")?;
+    let mut options = options;
+    let mut replaced = String::from(s);
+    for cap in re.captures_iter(s) {
+        let var = &cap[1];
+        if let Some(val) = options.get(var) {
+            let find = &cap[0];
+            let find = find.replace("{", r"\{");
+            let find = find.replace("}", r"\}");
+            if let Ok(re) = Regex::new(&find) {
+                let rs = re.replace_all(s, val);
+                replaced = rs.to_string();
+                options.remove(var);
+            }
+        }
+    }
+
+    Ok(replaced)
 }
 
 #[cfg(test)]

@@ -17,6 +17,7 @@ use validator::Validate;
 use super::model::{LoginScheme, User};
 use crate::{
     constants::*,
+    handlers::wallet::model::Money,
     jwt::JWT_KEYS,
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
@@ -243,7 +244,7 @@ async fn create_user(
     user.login_scheme = login_scheme;
     user.total_played = Some(0);
     user.contest_won = Some(0);
-    user.total_earning = Some(0);
+    user.total_earning = Some(Money::default());
     user.created_ts = Some(ts);
     user.last_login_time = Some(ts);
     db.insert_one::<User>(DB_NAME, COLL_USERS, &user, None)

@@ -8,6 +8,7 @@ use validator::Validate;
 use super::model::User;
 use crate::{
     constants::*,
+    handlers::wallet::model::Money,
     utils::{get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError, ValidatedBody},
 };
 
@@ -52,7 +53,7 @@ impl CreateUserReq {
         user.is_active = true;
         user.total_played = Some(0);
         user.contest_won = Some(0);
-        user.total_earning = Some(0);
+        user.total_earning = Some(Money::default());
         user.created_ts = Some(get_epoch_ts());
         Ok(user)
     }

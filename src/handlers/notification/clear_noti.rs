@@ -8,7 +8,7 @@ use validator::Validate;
 use crate::{
     constants::*,
     jwt::JwtClaims,
-    utils::{get_epoch_ts, AppError, ValidatedBody},
+    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
 #[cfg(test)]
@@ -28,10 +28,7 @@ pub async fn clear_noti_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ClearNotiReq>,
 ) -> Result<Json<JsonValue>, AppError> {
-    let oid = ObjectId::parse_str(body._id).map_err(|err| {
-        tracing::debug!("{:?}", err);
-        AppError::BadRequestErr("not able to parse ObjectId".into())
-    })?;
+    let oid = parse_object_id(body._id.as_str(), "not able to parse ObjectId")?;
     let ts = get_epoch_ts() as i64;
     let filter = doc! {"userId": claims.id, "isCleared": false, "_id": oid};
     let update = doc! {"$set": {"isCleared": true, "updatedTs": ts}};

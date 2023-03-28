@@ -4,8 +4,9 @@ use mongodb::{
     bson::{Bson, Document},
     error::{Result as MongoResult, UNKNOWN_TRANSACTION_COMMIT_RESULT},
     options::{
-        AggregateOptions, ClientOptions, FindOneAndUpdateOptions, FindOneOptions, FindOptions,
-        InsertOneOptions, SelectionCriteria, SessionOptions, TransactionOptions, UpdateOptions,
+        AggregateOptions, ClientOptions, DeleteOptions, FindOneAndUpdateOptions, FindOneOptions,
+        FindOptions, InsertOneOptions, SelectionCriteria, SessionOptions, TransactionOptions,
+        UpdateOptions,
     },
     Client, ClientSession,
 };
@@ -171,6 +172,18 @@ impl AppDatabase {
         Ok(update_result)
     }
 
+    pub async fn delete_many(
+        &self,
+        db: &str,
+        coll: &str,
+        query: Document,
+        options: Option<DeleteOptions>,
+    ) -> MongoResult<u64> {
+        let collection = self.0.database(db).collection::<Document>(coll);
+        let result = collection.delete_many(query, options).await?;
+        Ok(result.deleted_count)
+    }
+
     pub async fn aggregate(
         &self,
         db: &str,
@@ -315,6 +328,37 @@ impl AppDatabase {
         let collection = self.0.database(db).collection::<Document>(coll);
         let result = collection
             .update_one_with_session(query, update, options, session)
+            .await?;
+        let upserted_id = match result.upserted_id {
+            None => None,
+            Some(uid) => {
+                let Bson::ObjectId(oid) = uid else {
+                let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
+                    return Err (err);
+                };
+                Some(oid.to_hex())
+            }
+        };
+        let update_result = UpdateResult {
+            modified_count: result.modified_count,
+            matched_count: result.matched_count,
+            upserted_id,
+        };
+        Ok(update_result)
+    }
+
+    pub async fn update_many_with_session(
+        &self,
+        session: &mut ClientSession,
+        db: &str,
+        coll: &str,
+        query: Document,
+        update: Document,
+        options: Option<UpdateOptions>,
+    ) -> anyhow::Result<UpdateResult> {
+        let collection = self.0.database(db).collection::<Document>(coll);
+        let result = collection
+            .update_many_with_session(query, update, options, session)
             .await?;
         let upserted_id = match result.upserted_id {
             None => None,

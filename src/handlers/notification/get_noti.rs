@@ -2,15 +2,16 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use mongodb::bson::serde_helpers::hex_string_as_object_id;
 use mongodb::{bson::doc, options::FindOptions};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::sync::Arc;
 
-use crate::{constants::*, jwt::JwtClaims, utils::AppError};
+use crate::{
+    constants::*,
+    jobs::notification::notification_req::NotificationType,
+    jwt::JwtClaims,
+    utils::{deserialize_helper, get_epoch_ts, AppError},
+};
 
 #[cfg(test)]
 use mockall_double::double;
@@ -19,37 +20,38 @@ use mockall_double::double;
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize, Deserialize)]
-#[allow(non_camel_case_types)]
-pub enum NotificationType {
-    PUSH_MESSAGE,
-    SMS_MESSAGE,
-    EMAIL_MESSAGE,
-}
-
-impl Display for NotificationType {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        match self {
-            Self::PUSH_MESSAGE => write!(f, "PUSH_MESSAGE"),
-            Self::SMS_MESSAGE => write!(f, "SMS_MESSAGE"),
-            Self::EMAIL_MESSAGE => write!(f, "EMAIL_MESSAGE"),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Notifications {
     #[serde(rename = "_id")]
-    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
-    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "deserialize_helper")]
+    #[serde(default)]
+    _id: Option<String>,
     event_name: String,
     notification_type: NotificationType,
     user_id: u32,
     message: String,
     is_read: bool,
     is_cleared: bool,
-    created_ts: u64,
-    updated_ts: u64,
+    created_ts: Option<u64>,
+    updated_ts: Option<u64>,
+}
+
+impl Notifications {
+    pub fn new_push(user_id: u32, event_name: &str, msg: &str) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            _id: None,
+            event_name: event_name.to_string(),
+            notification_type: NotificationType::PUSH_MESSAGE,
+            user_id,
+            message: msg.to_string(),
+            is_read: false,
+            is_cleared: false,
+            created_ts: Some(ts),
+            updated_ts: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -79,7 +81,7 @@ pub async fn get_noti_handler(
     options.skip = Some(skip);
     options.limit = Some(page_size as i64);
     let options = Some(options);
-    let push_message = NotificationType::PUSH_MESSAGE.to_string();
+    let push_message = NotificationType::PUSH_MESSAGE.to_bson()?;
     let filter = doc! {"userId": claims.id, "isCleared": false, "notificationType": push_message};
     let result = db
         .find::<Notifications>(DB_NAME, COLL_NOTIFICATIONS, Some(filter), options)

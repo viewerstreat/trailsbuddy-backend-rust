@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::sync::Arc;
 
 use super::model::User;
-use crate::{constants::*, utils::AppError};
+use crate::{constants::*, handlers::wallet::model::Money, utils::AppError};
 
 #[cfg(test)]
 use mockall_double::double;
@@ -19,7 +19,7 @@ pub struct LeaderboardData {
     name: String,
     total_played: u32,
     contest_won: u32,
-    total_earning: u32,
+    total_earning: Money,
 }
 
 #[derive(Debug, Serialize)]

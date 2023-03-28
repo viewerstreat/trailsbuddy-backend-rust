@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
+use crate::handlers::wallet::model::Money;
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum LoginScheme {
@@ -57,7 +59,7 @@ pub struct User {
     pub contest_won: Option<u32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_earning: Option<u32>,
+    pub total_earning: Option<Money>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_ts: Option<u64>,

@@ -78,7 +78,7 @@ impl PlayTrackerStatus {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GivenAnswer {
     #[serde(flatten)]
@@ -93,7 +93,7 @@ impl GivenAnswer {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayTracker {
     pub user_id: u32,
@@ -137,5 +137,10 @@ impl PlayTracker {
             updated_ts: None,
             updated_by: None,
         }
+    }
+
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
     }
 }

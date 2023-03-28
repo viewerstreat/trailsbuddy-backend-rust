@@ -35,6 +35,16 @@ impl Display for Money {
     }
 }
 
+impl std::ops::Add for Money {
+    type Output = Self;
+    fn add(self, other: Self) -> Self::Output {
+        Self {
+            real: self.real() + other.real(),
+            bonus: self.bonus() + other.bonus(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Wallet {
@@ -170,6 +180,32 @@ impl WalletTransaction {
             tracking_id: None,
             receiver_upi_id: None,
             remarks: Some(format!("Pay for contest: {}", contest_id)),
+            error_reason: None,
+            created_ts: Some(ts),
+            created_by: Some(user_id),
+            updated_ts: None,
+            updated_by: None,
+        }
+    }
+
+    pub fn contest_win_trans(
+        user_id: u32,
+        amount: Money,
+        balance_before: Money,
+        balance_after: Money,
+        remarks: &str,
+    ) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            user_id,
+            transaction_type: WalltetTransactionType::ContestWin,
+            amount,
+            status: WalletTransactionStatus::Completed,
+            balance_before,
+            balance_after: Some(balance_after),
+            tracking_id: None,
+            receiver_upi_id: None,
+            remarks: Some(remarks.into()),
             error_reason: None,
             created_ts: Some(ts),
             created_by: Some(user_id),
