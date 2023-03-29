@@ -8,17 +8,14 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::user::{model::User, otp::Otp};
+use super::user::otp::Otp;
 use crate::{
     constants::*,
     jwt::JWT_KEYS,
+    models::user::User,
     utils::{get_epoch_ts, validate_phonenumber, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::State, Json};
 use mongodb::{
     bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
@@ -7,21 +7,15 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::model::User;
+use super::create::{check_uniq_email, check_uniq_phone};
 use crate::{
     constants::*,
     jwt::JwtClaims,
+    models::user::User,
     utils::{get_epoch_ts, validate_phonenumber, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
-
-#[cfg_attr(test, double)]
-use super::helper::helper_inner;
 
 #[derive(Debug, Default, Clone, Deserialize, Validate)]
 pub struct UpdateUserReq {
@@ -61,11 +55,11 @@ pub async fn update_user_handler(
     }
     // check if phone already exists in the DB
     if let Some(phone) = &body.phone {
-        helper_inner::check_uniq_phone(&db, phone).await?;
+        check_uniq_phone(&db, phone).await?;
     }
     // check if email already exists in the DB
     if let Some(email) = &body.email {
-        helper_inner::check_uniq_email(&db, email).await?;
+        check_uniq_email(&db, email).await?;
     }
     let filter = doc! {"id": claims.id};
     let ts = get_epoch_ts() as i64;

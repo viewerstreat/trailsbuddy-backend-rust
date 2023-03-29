@@ -6,7 +6,8 @@ use super::{google_auth_token::GoogleAuthToken, push_message::send_push_message}
 use crate::{
     constants::*,
     database::AppDatabase,
-    handlers::{notification::get_noti::Notifications, user::model::User},
+    handlers::notification::get_noti::Notifications,
+    models::user::User,
     utils::{deserialize_helper, get_epoch_ts, parse_object_id, replace_placeholders},
 };
 

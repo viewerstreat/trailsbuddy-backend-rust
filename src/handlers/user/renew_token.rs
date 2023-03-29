@@ -3,20 +3,14 @@ use mongodb::bson::{doc, Document};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::{
-    login::{update_user_login, verify_fb_token, verify_id_token},
-    model::{LoginScheme, User},
-};
+use super::login::{update_user_login, verify_fb_token, verify_id_token};
 use crate::{
     constants::*,
     jwt::JWT_KEYS,
+    models::user::{LoginScheme, User},
     utils::{get_epoch_ts, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

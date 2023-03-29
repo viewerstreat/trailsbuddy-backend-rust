@@ -3,13 +3,8 @@ use mongodb::{bson::doc, options::FindOptions};
 use serde::Serialize;
 use std::sync::Arc;
 
-use super::model::User;
-use crate::{constants::*, handlers::wallet::model::Money, utils::AppError};
+use crate::{constants::*, handlers::wallet::model::Money, models::user::User, utils::AppError};
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]

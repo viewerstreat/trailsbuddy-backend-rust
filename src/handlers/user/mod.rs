@@ -1,9 +1,7 @@
 pub mod check_otp;
 pub mod create;
 pub mod get_leaderboard;
-pub mod helper;
 pub mod login;
-pub mod model;
 pub mod otp;
 pub mod renew_token;
 pub mod update;

@@ -14,18 +14,14 @@ use serde_json::Value as JsonValue;
 use std::sync::Arc;
 use validator::Validate;
 
-use super::model::{LoginScheme, User};
 use crate::{
     constants::*,
     handlers::wallet::model::Money,
     jwt::JWT_KEYS,
+    models::user::{LoginScheme, User},
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

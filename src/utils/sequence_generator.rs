@@ -6,10 +6,6 @@ use std::sync::Arc;
 
 use crate::constants::*;
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 /// Generates the next val for a given sequence id
@@ -31,54 +27,4 @@ pub async fn get_seq_nxt_val(seq_id: &str, db: &Arc<AppDatabase>) -> anyhow::Res
         return Err(anyhow::anyhow!(err));
     }
     Ok(val as u32)
-}
-
-#[cfg(test)]
-mod tests {
-
-    use mockall::predicate::{eq, function};
-
-    use super::*;
-
-    #[tokio::test]
-    async fn test_get_seq_nxt_val() {
-        let seq_id = "TEST_SEQ_ID";
-        let filter = doc! {"_id": seq_id};
-        let update = doc! {"$inc": {"val": 1}};
-        let mut options = FindOneAndUpdateOptions::default();
-        options.upsert = Some(true);
-        options.return_document = Some(ReturnDocument::After);
-        let check_options = function(|options: &Option<FindOneAndUpdateOptions>| {
-            options
-                .as_ref()
-                .and_then(|option| {
-                    option
-                        .return_document
-                        .as_ref()
-                        .and_then(|rd| match rd {
-                            ReturnDocument::After => Some(()),
-                            _ => None,
-                        })
-                        .and(option.upsert)
-                        .and_then(|upsert| if upsert { Some(()) } else { None })
-                })
-                .is_some()
-        });
-        let mut mock_db = AppDatabase::default();
-        mock_db
-            .expect_find_one_and_update::<Document>()
-            .with(
-                eq(DB_NAME),
-                eq(COLL_SEQUENCES),
-                eq(filter),
-                eq(update),
-                check_options,
-            )
-            .times(1)
-            .returning(move |_, _, _, _, _| Ok(Some(doc! {"val": 5})));
-
-        let db = Arc::new(mock_db);
-        let result = get_seq_nxt_val(seq_id, &db).await.unwrap();
-        assert_eq!(result, 5);
-    }
 }

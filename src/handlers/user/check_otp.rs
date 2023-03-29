@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -7,22 +5,16 @@ use axum::{
 };
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use validator::Validate;
 
-use super::{
-    helper::helper_inner::update_login_time,
-    model::{LoginScheme, User},
-};
 use crate::{
     constants::*,
     jwt::JWT_KEYS,
+    models::user::{LoginScheme, User},
     utils::{get_epoch_ts, validate_phonenumber, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]
@@ -82,4 +74,18 @@ pub async fn check_otp_handler(
     };
 
     Ok((StatusCode::OK, Json(response)))
+}
+
+// update lastLoginTime for user
+pub async fn update_login_time(
+    db: &Arc<AppDatabase>,
+    id: u32,
+    login_scheme: LoginScheme,
+) -> anyhow::Result<()> {
+    let ts = get_epoch_ts() as i64;
+    let filter = doc! {"id": id};
+    let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme.to_string()}};
+    db.update_one(DB_NAME, COLL_USERS, filter, update, None)
+        .await?;
+    Ok(())
 }

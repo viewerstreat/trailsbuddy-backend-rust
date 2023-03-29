@@ -8,20 +8,14 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::model::User;
+use super::otp::generate_send_otp;
 use crate::{
     constants::*,
+    models::user::User,
     utils::{validate_phonenumber, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
-
-#[cfg_attr(test, double)]
-use super::otp::otp_inner;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct VerifyUserReq {
@@ -39,6 +33,6 @@ pub async fn verify_user_handler(
         .find_one::<User>(DB_NAME, COLL_USERS, filter, None)
         .await?
         .ok_or(AppError::NotFound("User not found".into()))?;
-    otp_inner::generate_send_otp(user.id, &db).await?;
+    generate_send_otp(user.id, &db).await?;
     Ok(Json(json!({"success": true, "message": "Otp generated"})))
 }
