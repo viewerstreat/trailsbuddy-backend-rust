@@ -8,8 +8,7 @@ use validator::Validate;
 use super::otp::generate_send_otp;
 use crate::{
     constants::*,
-    handlers::wallet::model::Money,
-    models::user::User,
+    models::{user::User, wallet::Money},
     utils::{get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError, ValidatedBody},
 };
 

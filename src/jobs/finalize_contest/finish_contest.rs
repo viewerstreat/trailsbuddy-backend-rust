@@ -12,8 +12,8 @@ use crate::{
     handlers::{
         contest::create::{Contest, ContestStatus, PrizeSelection},
         play_tracker::model::{PlayTracker, PlayTrackerStatus},
-        wallet::model::Money,
     },
+    models::wallet::Money,
     utils::{get_epoch_ts, parse_object_id},
 };
 

@@ -16,9 +16,11 @@ use validator::Validate;
 
 use crate::{
     constants::*,
-    handlers::wallet::model::Money,
     jwt::JWT_KEYS,
-    models::user::{LoginScheme, User},
+    models::{
+        user::{LoginScheme, User},
+        wallet::Money,
+    },
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
 

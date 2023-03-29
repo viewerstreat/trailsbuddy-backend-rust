@@ -7,7 +7,7 @@ use mongodb::{
 use crate::{
     constants::*,
     database::AppDatabase,
-    handlers::wallet::model::{Money, Wallet, WalletTransaction},
+    models::wallet::{Money, Wallet, WalletTransaction},
     utils::get_epoch_ts,
 };
 

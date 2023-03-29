@@ -10,21 +10,16 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::{
-    get_bal::get_user_balance,
-    model::{Money, Wallet, WalletTransaction},
-};
+use super::get_bal::get_user_balance;
 use crate::{
     constants::*,
-    handlers::wallet::model::{WalletTransactionStatus, WalltetTransactionType},
     jwt::JwtClaims,
+    models::wallet::{
+        Money, Wallet, WalletTransaction, WalletTransactionStatus, WalltetTransactionType,
+    },
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]

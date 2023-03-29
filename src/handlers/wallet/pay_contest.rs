@@ -8,6 +8,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use super::get_bal::get_user_balance;
 use crate::{
     constants::*,
     handlers::play_tracker::{
@@ -15,19 +16,11 @@ use crate::{
         model::{PlayTracker, PlayTrackerStatus},
     },
     jwt::JwtClaims,
+    models::wallet::{Money, Wallet, WalletTransaction},
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
-
-use super::{
-    get_bal::get_user_balance,
-    model::{Money, Wallet, WalletTransaction},
-};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

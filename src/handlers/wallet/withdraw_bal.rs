@@ -15,15 +15,14 @@ use super::add_bal::{
 };
 use crate::{
     constants::*,
-    handlers::wallet::{get_bal::get_user_balance, model::*},
+    handlers::wallet::get_bal::get_user_balance,
     jwt::JwtClaims,
+    models::wallet::{
+        Money, Wallet, WalletTransaction, WalletTransactionStatus, WalltetTransactionType,
+    },
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]

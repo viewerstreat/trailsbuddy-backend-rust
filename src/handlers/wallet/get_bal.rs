@@ -3,13 +3,9 @@ use mongodb::bson::doc;
 use serde::Serialize;
 use std::sync::Arc;
 
-use super::model::{Money, Wallet};
+use crate::models::wallet::{Money, Wallet};
 use crate::{constants::*, jwt::JwtClaims, utils::AppError};
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]

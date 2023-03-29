@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use crate::handlers::wallet::model::Money;
+use super::wallet::Money;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]

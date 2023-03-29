@@ -3,7 +3,11 @@ use mongodb::{bson::doc, options::FindOptions};
 use serde::Serialize;
 use std::sync::Arc;
 
-use crate::{constants::*, handlers::wallet::model::Money, models::user::User, utils::AppError};
+use crate::{
+    constants::*,
+    models::{user::User, wallet::Money},
+    utils::AppError,
+};
 
 use crate::database::AppDatabase;
 
