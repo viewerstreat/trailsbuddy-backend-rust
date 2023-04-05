@@ -1,83 +1,18 @@
 use axum::{extract::State, Json};
-use mongodb::bson::serde_helpers::hex_string_as_object_id;
-use mongodb::bson::{doc, oid::ObjectId, Bson};
+use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
+use crate::models::contest::{Answer, ContestStatus, ExtraMediaType, Question, QuestionContest};
 use crate::{
     constants::*,
-    handlers::contest::create::ContestStatus,
     jwt::JwtClaims,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ExtraMediaType {
-    Image,
-    Video,
-}
-
-impl ExtraMediaType {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct Answer {
-    #[validate(range(min = 1, max = 4))]
-    pub option_id: u32,
-    #[validate(length(min = 1, max = 100))]
-    pub option_text: String,
-    pub is_correct: bool,
-    pub extra_media_type: Option<ExtraMediaType>,
-    #[validate(url)]
-    pub extra_media_link: Option<String>,
-}
-
-impl Answer {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Question {
-    pub question_no: u32,
-    pub question_text: String,
-    pub options: Vec<Answer>,
-    pub is_active: bool,
-    pub extra_media_type: Option<ExtraMediaType>,
-    pub extra_media_link: Option<String>,
-}
-
-impl Question {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Contest {
-    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
-    _id: String,
-    status: ContestStatus,
-    pub questions: Option<Vec<Question>>,
-}
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
@@ -133,7 +68,7 @@ pub async fn validate_request(
     }
     let filter = doc! {"_id": contest_id, "status": ContestStatus::CREATED.to_bson()?};
     let contest = db
-        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<QuestionContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("Not valid contest".into()))?;
     if let Some(questions) = contest.questions.as_ref() {

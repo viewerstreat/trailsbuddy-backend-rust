@@ -9,16 +9,12 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::create::{Contest, ContestCategory, ContestStatus};
 use crate::{
     constants::*,
+    models::contest::{Contest, ContestCategory, ContestStatus},
     utils::{parse_object_id, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

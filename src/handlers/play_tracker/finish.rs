@@ -7,21 +7,16 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::model::PlayTracker;
 use crate::{
     constants::*,
-    handlers::{
-        contest::create::ContestStatus, play_tracker::model::PlayTrackerStatus,
-        question::create::Contest,
-    },
     jwt::JwtClaims,
-    utils::{get_epoch_ts, get_random_num, parse_object_id, AppError, ValidatedBody},
+    models::{
+        contest::ContestStatus,
+        play_tracker::{PlayTracker, PlayTrackerContest, PlayTrackerStatus},
+    },
+    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -61,7 +56,7 @@ pub async fn finish_play_tracker_handler(
 async fn validate_contest(
     db: &Arc<AppDatabase>,
     contest_id: &ObjectId,
-) -> Result<Contest, AppError> {
+) -> Result<PlayTrackerContest, AppError> {
     let ts = get_epoch_ts() as i64;
     let filter = doc! {
         "_id": contest_id,
@@ -70,7 +65,7 @@ async fn validate_contest(
         "endTime": {"$gt": ts}
     };
     let contest = db
-        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<PlayTrackerContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("contest not found".into()))?;
     Ok(contest)

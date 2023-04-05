@@ -6,15 +6,11 @@ use std::sync::Arc;
 use validator::Validate;
 
 use crate::{
-    handlers::contest::create::ContestStatus,
     jwt::JwtClaims,
+    models::contest::ContestStatus,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 use super::update::{update_options_question, update_question};

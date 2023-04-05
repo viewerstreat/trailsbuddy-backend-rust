@@ -11,12 +11,12 @@ use std::sync::Arc;
 use super::get_bal::get_user_balance;
 use crate::{
     constants::*,
-    handlers::play_tracker::{
-        get::{insert_new_play_tracker, validate_contest},
-        model::{PlayTracker, PlayTrackerStatus},
-    },
+    handlers::play_tracker::get::{insert_new_play_tracker, validate_contest},
     jwt::JwtClaims,
-    models::wallet::{Money, Wallet, WalletTransaction},
+    models::{
+        play_tracker::{PlayTracker, PlayTrackerStatus},
+        wallet::{Money, Wallet, WalletTransaction},
+    },
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 

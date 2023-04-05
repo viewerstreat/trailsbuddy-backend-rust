@@ -8,18 +8,14 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::create::{validate_options, Answer, ExtraMediaType};
+use super::create::validate_options;
 use crate::{
     constants::*,
-    handlers::contest::create::ContestStatus,
     jwt::JwtClaims,
+    models::contest::{Answer, ContestStatus, ExtraMediaType},
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]

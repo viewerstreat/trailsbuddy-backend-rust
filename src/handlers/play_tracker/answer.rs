@@ -7,21 +7,16 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::model::{GivenAnswer, PlayTracker, Question};
 use crate::{
     constants::*,
-    handlers::{
-        contest::create::ContestStatus, play_tracker::model::PlayTrackerStatus,
-        question::create::Contest,
-    },
     jwt::JwtClaims,
+    models::{
+        contest::{ContestStatus, QuestionContest},
+        play_tracker::{GivenAnswer, PlayTracker, PlayTrackerStatus, Question},
+    },
     utils::{get_epoch_ts, get_random_num, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -78,7 +73,7 @@ pub async fn answer_play_tracker_handler(
 async fn validate_contest(
     db: &Arc<AppDatabase>,
     contest_id: &ObjectId,
-) -> Result<Contest, AppError> {
+) -> Result<QuestionContest, AppError> {
     let ts = get_epoch_ts() as i64;
     let filter = doc! {
         "_id": contest_id,
@@ -87,7 +82,7 @@ async fn validate_contest(
         "endTime": {"$gt": ts}
     };
     let contest = db
-        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<QuestionContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("contest not found".into()))?;
     Ok(contest)
@@ -110,7 +105,10 @@ async fn check_play_tracker(
     Ok(play_tracker)
 }
 
-fn check_if_correct(contest: &Contest, body: &ReqBody) -> Result<(GivenAnswer, bool), AppError> {
+fn check_if_correct(
+    contest: &QuestionContest,
+    body: &ReqBody,
+) -> Result<(GivenAnswer, bool), AppError> {
     let questions = contest
         .questions
         .as_ref()
@@ -130,7 +128,10 @@ fn check_if_correct(contest: &Contest, body: &ReqBody) -> Result<(GivenAnswer, b
     Ok((answer, is_correct))
 }
 
-fn check_if_finished(contest: &Contest, play_tracker: &PlayTracker) -> Result<bool, AppError> {
+fn check_if_finished(
+    contest: &QuestionContest,
+    play_tracker: &PlayTracker,
+) -> Result<bool, AppError> {
     let questions = contest
         .questions
         .as_ref()
@@ -189,7 +190,7 @@ async fn update_play_tracker(
 }
 
 fn get_question(
-    contest: &Contest,
+    contest: &QuestionContest,
     play_tracker: &PlayTracker,
     is_finished: bool,
 ) -> Result<Option<Question>, AppError> {

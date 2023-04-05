@@ -9,11 +9,11 @@ use super::{credit_prize::credit_prize_value, push_message::create_push_for_priz
 use crate::{
     constants::*,
     database::AppDatabase,
-    handlers::{
-        contest::create::{Contest, ContestStatus, PrizeSelection},
-        play_tracker::model::{PlayTracker, PlayTrackerStatus},
+    models::{
+        contest::{Contest, ContestStatus, PrizeSelection},
+        play_tracker::{PlayTracker, PlayTrackerStatus},
+        wallet::Money,
     },
-    models::wallet::Money,
     utils::{get_epoch_ts, parse_object_id},
 };
 

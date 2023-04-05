@@ -9,18 +9,14 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::model::{Contest, PlayTracker, Question};
 use crate::{
     constants::*,
-    handlers::play_tracker::{get::validate_contest, model::PlayTrackerStatus},
+    handlers::play_tracker::get::validate_contest,
     jwt::JwtClaims,
+    models::play_tracker::{PlayTracker, PlayTrackerContest, PlayTrackerStatus, Question},
     utils::{get_epoch_ts, get_random_num, parse_object_id, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
@@ -92,7 +88,10 @@ pub async fn get_next_ques_handler(
     Ok(Json(res))
 }
 
-fn get_question(contest: &Contest, play_tracker: &PlayTracker) -> Result<Question, AppError> {
+fn get_question(
+    contest: &PlayTrackerContest,
+    play_tracker: &PlayTracker,
+) -> Result<Question, AppError> {
     let answered_questions = play_tracker
         .answers
         .as_ref()

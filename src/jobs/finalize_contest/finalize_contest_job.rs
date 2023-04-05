@@ -6,7 +6,7 @@ use super::finish_contest::finish_contest;
 use crate::{
     constants::*,
     database::AppDatabase,
-    handlers::contest::create::{Contest, ContestStatus},
+    models::contest::{Contest, ContestStatus},
     utils::get_epoch_ts,
 };
 

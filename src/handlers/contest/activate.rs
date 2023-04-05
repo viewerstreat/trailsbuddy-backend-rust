@@ -5,18 +5,13 @@ use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
-use super::create::ContestStatus;
-use crate::handlers::question::create::Question;
+use crate::models::contest::{ContestStatus, Question};
 use crate::{
     constants::*,
     jwt::JwtClaims,
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]

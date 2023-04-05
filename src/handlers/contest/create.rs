@@ -1,103 +1,16 @@
 use axum::{extract::State, Json};
-use mongodb::bson::{doc, Bson, Document};
-use serde::{Deserialize, Serialize};
+use mongodb::bson::{doc, Document};
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use validator::Validate;
 
 use crate::{
     constants::*,
     jwt::JwtClaims,
-    utils::{deserialize_helper, get_epoch_ts, parse_object_id, AppError, ValidatedBody},
+    models::contest::{Contest, ContestCategory, ContestStatus, PrizeSelection},
+    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum ContestStatus {
-    CREATED,
-    ACTIVE,
-    INACTIVE,
-    FINISHED,
-    CANCELLED,
-    ENDED,
-}
-
-impl ContestStatus {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum ContestCategory {
-    Movie,
-    Others,
-}
-
-impl ContestCategory {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum PrizeSelection {
-    TOP_WINNERS,
-    RATIO_BASED,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct Contest {
-    #[serde(rename = "_id")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "deserialize_helper")]
-    #[serde(default)]
-    pub _id: Option<String>,
-    #[validate(length(min = 1))]
-    pub title: String,
-    pub category: ContestCategory,
-    #[validate(length(min = 1))]
-    pub movie_id: Option<String>,
-    #[validate(length(min = 1))]
-    pub sponsored_by: String,
-    #[validate(url)]
-    pub sponsored_by_logo: Option<String>,
-    #[validate(url)]
-    pub banner_image_url: String,
-    #[validate(url)]
-    pub video_url: String,
-    pub entry_fee: u32,
-    pub entry_fee_max_bonus_money: u32,
-    pub prize_selection: PrizeSelection,
-    #[validate(range(min = 1))]
-    pub top_winners_count: Option<u32>,
-    #[validate(range(min = 1))]
-    pub prize_ratio_numerator: Option<u32>,
-    #[validate(range(min = 1))]
-    pub prize_ratio_denominator: Option<u32>,
-    pub prize_value_real_money: u32,
-    pub prize_value_bonus_money: u32,
-    #[validate(range(min = 1))]
-    pub start_time: u64,
-    #[validate(range(min = 1))]
-    pub end_time: u64,
-    pub status: Option<ContestStatus>,
-    created_ts: Option<u64>,
-    created_by: Option<u32>,
-    updated_ts: Option<u64>,
-    updated_by: Option<u32>,
-}
 
 pub async fn create_contest_handler(
     claims: JwtClaims,

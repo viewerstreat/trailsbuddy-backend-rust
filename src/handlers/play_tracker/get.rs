@@ -6,11 +6,13 @@ use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::model::{Contest, PlayTracker};
 use crate::{
     constants::*,
-    handlers::contest::create::ContestStatus,
     jwt::JwtClaims,
+    models::{
+        contest::ContestStatus,
+        play_tracker::{PlayTracker, PlayTrackerContest},
+    },
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
@@ -68,7 +70,7 @@ pub async fn insert_new_play_tracker(
 pub async fn validate_contest(
     db: &Arc<AppDatabase>,
     contest_id: &ObjectId,
-) -> Result<Contest, AppError> {
+) -> Result<PlayTrackerContest, AppError> {
     let ts = get_epoch_ts() as i64;
     let filter = doc! {
         "_id": contest_id,
@@ -77,7 +79,7 @@ pub async fn validate_contest(
         "endTime": {"$gt": ts}
     };
     let contest = db
-        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<PlayTrackerContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("contest not found".into()))?;
 

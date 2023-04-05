@@ -6,17 +6,13 @@ use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::create::{Contest, Question};
 use crate::{
     constants::*,
     jwt::JwtClaims,
+    models::contest::{Question, QuestionContest},
     utils::{parse_object_id, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
@@ -39,7 +35,7 @@ pub async fn get_question_handler(
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
     let contest = db
-        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<QuestionContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("Contest not found".into()))?;
     let data = contest
