@@ -84,7 +84,7 @@ pub async fn update_login_time(
 ) -> anyhow::Result<()> {
     let ts = get_epoch_ts() as i64;
     let filter = doc! {"id": id};
-    let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme.to_string()}};
+    let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme.to_bson()?}};
     db.update_one(DB_NAME, COLL_USERS, filter, update, None)
         .await?;
     Ok(())

@@ -12,6 +12,7 @@ pub mod notification;
 pub fn spawn_all_jobs(db_client: Arc<AppDatabase>) {
     {
         let db_client = db_client.clone();
+        // spawn job to cleanup old otp & used tokens
         tokio::spawn(async {
             cleanup_job(db_client).await;
         });
@@ -19,12 +20,14 @@ pub fn spawn_all_jobs(db_client: Arc<AppDatabase>) {
 
     {
         let db_client = db_client.clone();
+        // spawn job to periodically send out notifications
         tokio::spawn(async {
             notification_job(db_client).await;
         });
     }
 
     tokio::spawn(async {
+        // spawn job which handle all tasks when a content is finished
         finalize_contest_job(db_client).await;
     });
 }

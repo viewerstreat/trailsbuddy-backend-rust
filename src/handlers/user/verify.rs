@@ -11,11 +11,10 @@ use validator::Validate;
 use super::otp::generate_send_otp;
 use crate::{
     constants::*,
+    database::AppDatabase,
     models::user::User,
     utils::{validate_phonenumber, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct VerifyUserReq {

@@ -13,10 +13,6 @@ use crate::{
     utils::{deserialize_helper, get_epoch_ts, AppError},
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize, Deserialize)]

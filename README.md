@@ -2,7 +2,7 @@
 The backend web server for Trailsbuddy app written in Rust.
 
 
-# Contents of .env 
+# Contents of .env
 - RUST_LOG
 - PORT
 - MONGODB_URI
@@ -16,3 +16,16 @@ The backend web server for Trailsbuddy app written in Rust.
 - AWS_REGION
 - APP_UPI_ID
 
+# DB Indexes to be created
+```
+db.users.createIndex({"id": 1}, {"unique": true});
+db.clips.createIndex({"name": 1}, {"unique": true});
+db.movies.createIndex({"name": 1}, {"unique": true});
+db.contests.createIndex({"title": 1}, {"unique": true});
+db.playTrackers.createIndex({"contestId": 1, "userId": 1}, {"unique": true});
+db.wallets.createIndex({"userId": 1}, {"unique": true});
+db.walletTransactions.createIndex({"userId": 1});
+db.notifications.createIndex({"userId": 1});
+db.notificationRequests.createIndex({"userId": 1});
+db.notificationRequests.createIndex({"status": 1});
+```

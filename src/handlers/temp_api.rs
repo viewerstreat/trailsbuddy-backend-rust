@@ -8,15 +8,13 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::user::otp::Otp;
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JWT_KEYS,
-    models::user::User,
+    models::{otp::Otp, user::User},
     utils::{get_epoch_ts, validate_phonenumber, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

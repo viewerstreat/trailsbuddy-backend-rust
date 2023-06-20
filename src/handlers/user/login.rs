@@ -16,6 +16,7 @@ use validator::Validate;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JWT_KEYS,
     models::{
         user::{LoginScheme, User},
@@ -23,8 +24,6 @@ use crate::{
     },
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 pub enum SocialLoginScheme {
@@ -213,8 +212,7 @@ pub async fn update_user_login(
 ) -> Result<User, AppError> {
     let filter = doc! {"id": user_id};
     let ts = get_epoch_ts() as i64;
-    let login_scheme = login_scheme.to_string();
-    let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme}};
+    let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme.to_bson()?}};
     let mut options = FindOneAndUpdateOptions::default();
     options.upsert = Some(false);
     options.return_document = Some(ReturnDocument::After);

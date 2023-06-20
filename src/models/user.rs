@@ -1,5 +1,5 @@
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use super::wallet::Money;
 
@@ -11,14 +11,10 @@ pub enum LoginScheme {
     GOOGLE,
     FACEBOOK,
 }
-
-impl Display for LoginScheme {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        match self {
-            Self::OTP_BASED => write!(f, "OTP_BASED"),
-            Self::GOOGLE => write!(f, "GOOGLE"),
-            Self::FACEBOOK => write!(f, "FACEBOOK"),
-        }
+impl LoginScheme {
+    pub fn to_bson(&self) -> anyhow::Result<Bson> {
+        let bson = mongodb::bson::to_bson(self)?;
+        Ok(bson)
     }
 }
 
@@ -69,4 +65,32 @@ pub struct User {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fcm_tokens: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct LeaderboardData {
+    id: u32,
+    name: String,
+    total_played: u32,
+    contest_won: u32,
+    total_earning: Money,
+}
+
+impl LeaderboardData {
+    pub fn new(
+        id: u32,
+        name: String,
+        total_played: u32,
+        contest_won: u32,
+        total_earning: Money,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            total_played,
+            contest_won,
+            total_earning,
+        }
+    }
 }

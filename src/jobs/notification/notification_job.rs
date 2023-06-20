@@ -9,8 +9,11 @@ use crate::{
     constants::*, database::AppDatabase, jobs::notification::google_auth_token::GoogleAuthToken,
 };
 
+/// This function periodically calls `handle_notification` function
+/// to send out the push notifications
 pub async fn notification_job(db: Arc<AppDatabase>) {
     tracing::debug!("initializing notification scheduler job");
+    // NOTIFICATION_JOB_INTERVAL is mentioned in seconds
     let mut interval = interval(Duration::from_secs(NOTIFICATION_JOB_INTERVAL));
     let mut google_auth_token = GoogleAuthToken::default();
     loop {
@@ -19,6 +22,7 @@ pub async fn notification_job(db: Arc<AppDatabase>) {
     }
 }
 
+/// This function processes the notification requests
 async fn handle_notification(db: &Arc<AppDatabase>, google_auth_token: &mut GoogleAuthToken) {
     tracing::debug!("running handle_notification scheduler job");
     tokio::join!(
@@ -27,6 +31,7 @@ async fn handle_notification(db: &Arc<AppDatabase>, google_auth_token: &mut Goog
     );
 }
 
+/// This function processes the notifications which are in `NEW` status
 async fn process_new_batch(db: &Arc<AppDatabase>) {
     let Ok(status) = NotificationReqStatus::NEW.to_bson() else {
         tracing::debug!("not able to convert NotificationReqStatus to bson");
@@ -54,6 +59,7 @@ async fn process_new_batch(db: &Arc<AppDatabase>) {
     }
 }
 
+/// This function processes the notifications which are in `READY_TO_SEND` status
 async fn process_ready_batch(db: &Arc<AppDatabase>, google_auth_token: &mut GoogleAuthToken) {
     let Ok(status) = NotificationReqStatus::READY_TO_SEND.to_bson() else {
         tracing::debug!("not able to convert NotificationReqStatus to bson");

@@ -4,8 +4,10 @@ use tokio::time::interval;
 
 use crate::{constants::*, database::AppDatabase, utils::get_epoch_ts};
 
+/// This function periodically deletes the old OTP & used tokens from database
 pub async fn cleanup_job(db: Arc<AppDatabase>) {
     tracing::debug!("initializing cleanup scheduler job");
+    // CLEANUP_JOB_INTERVAL is mentioned in seconds
     let mut interval = interval(Duration::from_secs(CLEANUP_JOB_INTERVAL));
     loop {
         interval.tick().await;
@@ -19,8 +21,10 @@ pub async fn cleanup_job(db: Arc<AppDatabase>) {
     }
 }
 
+/// This function deletes the OTP from the database which are older than retention period
 async fn delete_otp(db: &Arc<AppDatabase>) -> anyhow::Result<()> {
     let ts = get_epoch_ts();
+    // OTP_RETENTION variable is mentioned in number of days
     let cut_off = OTP_RETENTION * 24 * 3600;
     let cut_off = ts - cut_off;
     let filter = doc! {"validTill": {"$lt": cut_off as i64}};
@@ -28,8 +32,10 @@ async fn delete_otp(db: &Arc<AppDatabase>) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// This function deletes the used tokens which are older than retention period
 async fn delete_used_tokens(db: &Arc<AppDatabase>) -> anyhow::Result<()> {
     let ts = get_epoch_ts();
+    // USED_TOKEN_RETENTION is mentioned in number of days
     let cut_off = USED_TOKEN_RETENTION * 24 * 3600;
     let cut_off = ts - cut_off;
     let filter = doc! {"validTill": {"$lt": cut_off as i64}};

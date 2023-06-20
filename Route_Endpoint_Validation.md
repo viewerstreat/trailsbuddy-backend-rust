@@ -1,0 +1,5 @@
+- Default Route (/) -> Checked, working fine
+- Ping Route (api/v1/ping) -> Checked, working fine
+- Temp API Get Token (api/v1/tempApiGetToken) -> Checked, working fine
+- Temp API Get OTP (api/v1/tempApiGetOtp) -> Checked, working fine
+- User Create (api/v1/user/create) -> Checked, working fine

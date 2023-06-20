@@ -214,10 +214,6 @@ impl WalletTransaction {
         }
     }
 
-    pub fn user_id(&self) -> u32 {
-        self.user_id
-    }
-
     pub fn amount(&self) -> Money {
         self.amount
     }

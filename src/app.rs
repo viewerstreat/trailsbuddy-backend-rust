@@ -65,10 +65,6 @@ use crate::{
     },
 };
 
-#[cfg(test)]
-use mockall_double::double;
-
-#[cfg_attr(test, double)]
 use crate::database::AppDatabase;
 
 /// Initializes the app with all routes and middlewares
@@ -130,7 +126,6 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
         .route("/", get(get_contest_handler))
         .route("/activate", post(activate_contest_handler))
         .route("/inActivate", post(inactivate_contest_handler));
-
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
         .route("/clear", post(clear_noti_handler))

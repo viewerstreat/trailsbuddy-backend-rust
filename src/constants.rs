@@ -30,7 +30,7 @@ pub const PUSH_MESSAGE_TITLE: &str = "Trailsbuddy";
 pub const NOTI_JOB_MAX_RETRY_COUNT: u32 = 10;
 pub const NOTI_JOB_FETCH_LIMIT: i64 = 10;
 
-pub const DB_NAME: &str = "treatviewers";
+pub const DB_NAME: &str = "treatviewers2";
 
 pub const COLL_SEQUENCES: &str = "sequences";
 pub const COLL_CLIPS: &str = "clips";
