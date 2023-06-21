@@ -25,6 +25,8 @@ use crate::{
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
 
+use super::create::create_uniq_referral_code;
+
 #[derive(Debug, Deserialize)]
 pub enum SocialLoginScheme {
     GOOGLE,
@@ -196,7 +198,7 @@ async fn create_or_update_user(
         .await?;
     if let Some(user) = user {
         if !user.is_active {
-            let err = AppError::BadRequestErr("user is inactive".into());
+            let err = AppError::Auth("user is inactive".into());
             return Err(err);
         }
         update_user_login(db, user.id, login_scheme).await
@@ -230,6 +232,7 @@ async fn create_user(
     login_scheme: LoginScheme,
 ) -> Result<User, AppError> {
     let id = get_seq_nxt_val(USER_ID_SEQ, &db).await?;
+    let referral_code = create_uniq_referral_code(db, id, &token_data.name).await?;
     let ts = get_epoch_ts();
     let mut user = User::default();
     user.id = id;
@@ -243,6 +246,7 @@ async fn create_user(
     user.total_earning = Some(Money::default());
     user.created_ts = Some(ts);
     user.last_login_time = Some(ts);
+    user.referral_code = Some(referral_code);
     db.insert_one::<User>(DB_NAME, COLL_USERS, &user, None)
         .await?;
     Ok(user)

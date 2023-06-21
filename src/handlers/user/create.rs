@@ -9,7 +9,10 @@ use super::otp::generate_send_otp;
 use crate::{
     constants::*,
     models::{user::User, wallet::Money},
-    utils::{get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError, ValidatedBody},
+    utils::{
+        generate_referral_code, get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError,
+        ValidatedBody,
+    },
 };
 
 use crate::database::AppDatabase;
@@ -35,6 +38,7 @@ pub struct CreateUserReq {
 impl CreateUserReq {
     async fn create_user(&self, db: &Arc<AppDatabase>) -> anyhow::Result<User> {
         let id = get_seq_nxt_val(USER_ID_SEQ, db).await?;
+        let referral_code = create_uniq_referral_code(db, id, &self.name).await?;
         let mut user = User::default();
         user.id = id;
         user.name = self.name.to_owned();
@@ -45,6 +49,7 @@ impl CreateUserReq {
         user.contest_won = Some(0);
         user.total_earning = Some(Money::default());
         user.created_ts = Some(get_epoch_ts());
+        user.referral_code = Some(referral_code);
         Ok(user)
     }
 }
@@ -72,7 +77,7 @@ pub async fn create_user_handler(
     Ok(response)
 }
 
-// check if the given phone already exists in users collection
+/// check if the given phone already exists in users collection
 pub async fn check_uniq_phone(db: &Arc<AppDatabase>, phone: &str) -> Result<(), AppError> {
     let filter = Some(doc! {"phone": phone});
     let result = db
@@ -87,7 +92,7 @@ pub async fn check_uniq_phone(db: &Arc<AppDatabase>, phone: &str) -> Result<(), 
     Ok(())
 }
 
-// check if the given email already exists in the users collection
+/// check if the given email already exists in the users collection
 pub async fn check_uniq_email(db: &Arc<AppDatabase>, email: &str) -> Result<(), AppError> {
     let filter = Some(doc! {"email": email});
     let result = db
@@ -100,4 +105,29 @@ pub async fn check_uniq_email(db: &Arc<AppDatabase>, email: &str) -> Result<(), 
     }
 
     Ok(())
+}
+
+/// create an unique referral_code for an user
+pub async fn create_uniq_referral_code(
+    db: &Arc<AppDatabase>,
+    id: u32,
+    name: &str,
+) -> anyhow::Result<String> {
+    let mut loop_counter = 0;
+    loop {
+        loop_counter += 1;
+        let code = generate_referral_code(id, name);
+        let filter = Some(doc! {"referralCode": &code});
+        let result = db
+            .find_one::<Document>(DB_NAME, COLL_USERS, filter, None)
+            .await?;
+        if result.is_none() {
+            return Ok(code);
+        }
+        if loop_counter >= 3 {
+            return Err(anyhow::anyhow!(
+                "Not able to generate unique referralCode with 3 retries"
+            ));
+        }
+    }
 }
