@@ -1,5 +1,12 @@
-- Default Route (/) -> Checked, working fine
-- Ping Route (api/v1/ping) -> Checked, working fine
-- Temp API Get Token (api/v1/tempApiGetToken) -> Checked, working fine
-- Temp API Get OTP (api/v1/tempApiGetOtp) -> Checked, working fine
-- User Create (api/v1/user/create) -> Checked, working fine
+- Default Route (`/`) -> Checked, working fine
+- Ping Route (`api/v1/ping`) -> Checked, working fine
+- Temp API Get Token (`api/v1/tempApiGetToken`) -> Checked, working fine
+- Temp API Get OTP (`api/v1/tempApiGetOtp`) -> Checked, working fine
+- Upload Single (`api/v1/upload/single`) -> Checked, working fine
+- User Create (`api/v1/user/create`) -> Changes done for referralCode generation
+- User Login (`api/v1/user/login`) -> **Haven't tested yet. Need to test!!!**
+- Verify User (`api/v1/user/verify`) -> Checked, working fine
+- Update User (`api/v1/user/update`) -> Checked, working fine
+- Get Leaderboard (`api/v1/user/getLeaderboard`) -> **Need to be retested when some contest played data generated!!!**
+- Update FCM Token (`api/v1/user/updateFcmToken`) -> Checked, working fine
+-

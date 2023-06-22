@@ -6,6 +6,7 @@ use std::sync::Arc;
 use validator::Validate;
 
 use super::otp::generate_send_otp;
+use crate::database::AppDatabase;
 use crate::{
     constants::*,
     models::{user::User, wallet::Money},
@@ -14,8 +15,6 @@ use crate::{
         ValidatedBody,
     },
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct CreateUserReq {
@@ -49,6 +48,7 @@ impl CreateUserReq {
         user.contest_won = Some(0);
         user.total_earning = Some(Money::default());
         user.created_ts = Some(get_epoch_ts());
+        user.has_used_referral_code = Some(false);
         user.referral_code = Some(referral_code);
         Ok(user)
     }
@@ -118,10 +118,13 @@ pub async fn create_uniq_referral_code(
         loop_counter += 1;
         let code = generate_referral_code(id, name);
         let filter = Some(doc! {"referralCode": &code});
-        let result = db
-            .find_one::<Document>(DB_NAME, COLL_USERS, filter, None)
+        let user = db
+            .find_one::<Document>(DB_NAME, COLL_USERS, filter.clone(), None)
             .await?;
-        if result.is_none() {
+        let special_referral = db
+            .find_one::<Document>(DB_NAME, COLL_SPECIAL_REFERRAL_CODES, filter, None)
+            .await?;
+        if user.is_none() && special_referral.is_none() {
             return Ok(code);
         }
         if loop_counter >= 3 {
@@ -131,3 +134,32 @@ pub async fn create_uniq_referral_code(
         }
     }
 }
+
+// --------------------------------------------------------------------------
+// Tests
+// - empty object in request body -> 422 Unprocessable Entity
+// - request body wihout `name` field -> 422 Unprocessable Entity
+// - request body wihout `phone` field -> 422 Unprocessable Entity
+// - request body contains name & phone but name does not have any value -> 400
+// - request body contains name & phone but phone has alphabetic chars -> 400
+// - request body contains name & phone but phone does not have 10 chars -> 400
+// - request body has email field & email is not string type - 422
+// - request body has email field & email is in invalid format - 400
+// - request body has duplicate phone - 400
+// - request body has duplicate email - 400
+// - request body has profilePic field and in invalid format - 400
+// - successful creation following fields to checked
+//          - id field has a valid uniq interger from the sequence generator
+//          - name field has proper value
+//          - phone field has proper value
+//          - email field has proper value
+//          - profilePic field has proper value
+//          - loginScheme = "OTP_BASED"
+//          - isActive = true
+//          - hasUsedReferralCode = false
+//          - referralCode = <Some uniq 8 chars code>
+//          - totalPlayed = 0
+//          - contestWon = 0
+//          - totalEarning = real = 0, bonus = 0
+//          - otps collection have a new otp for the user
+// --------------------------------------------------------------------------

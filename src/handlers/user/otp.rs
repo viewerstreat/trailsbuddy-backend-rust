@@ -8,11 +8,17 @@ use crate::{
     utils::generate_otp,
 };
 
-// Generate and send otp
+/// Get user details from database by user Id
+/// User must be active
+pub async fn get_user_by_id(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<Option<User>> {
+    let f = Some(doc! {"id": user_id, "isActive": true});
+    let user = db.find_one::<User>(DB_NAME, COLL_USERS, f, None).await?;
+    Ok(user)
+}
+
+/// Generate a random otp, save into the otp collection and send to user's phone
 pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<()> {
-    let f = Some(doc! {"id": user_id});
-    let user = db
-        .find_one::<User>(DB_NAME, COLL_USERS, f, None)
+    let user = get_user_by_id(user_id, db)
         .await?
         .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
     let Some(phone) = &user.phone else {
@@ -26,7 +32,7 @@ pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::R
     Ok(())
 }
 
-// send otp to a given phone. SMS gateway API or SMS queue API to be called from here
+/// send otp to a given phone. SMS gateway API or SMS queue API to be called from here
 pub fn send_otp(phone: &str, otp: &str) {
     tracing::debug!("Send otp {otp} to phone {phone}");
 }

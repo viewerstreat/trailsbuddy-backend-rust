@@ -22,11 +22,16 @@ pub struct VerifyUserReq {
     phone: String,
 }
 
+/// Verify if there is any active user with the provided phone
+/// If present then generate and send an otp to the phone number
+/// and return success response
 pub async fn verify_user_handler(
     State(db): State<Arc<AppDatabase>>,
     params: Query<VerifyUserReq>,
 ) -> Result<Json<JsonValue>, AppError> {
-    params.validate()?;
+    params
+        .validate()
+        .map_err(|err| AppError::BadRequestErr(err.to_string()))?;
     let filter = Some(doc! {"phone": &params.phone, "isActive": true});
     let user = db
         .find_one::<User>(DB_NAME, COLL_USERS, filter, None)

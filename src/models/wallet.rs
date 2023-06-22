@@ -2,7 +2,7 @@ use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use crate::utils::get_epoch_ts;
+use crate::{constants::*, utils::get_epoch_ts};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Money {
@@ -70,7 +70,7 @@ pub enum WalltetTransactionType {
     ContestWin,
     SignupBonus,
     ReferralBonus,
-    RefereeBonus,
+    ReferrerBonus,
 }
 
 impl WalltetTransactionType {
@@ -206,6 +206,56 @@ impl WalletTransaction {
             tracking_id: None,
             receiver_upi_id: None,
             remarks: Some(remarks.into()),
+            error_reason: None,
+            created_ts: Some(ts),
+            created_by: Some(user_id),
+            updated_ts: None,
+            updated_by: None,
+        }
+    }
+
+    pub fn referral_bonus_trans(
+        user_id: u32,
+        bonus: u64,
+        balance_before: Money,
+        balance_after: Money,
+    ) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            user_id,
+            transaction_type: WalltetTransactionType::ReferralBonus,
+            amount: Money::new(0, bonus),
+            status: WalletTransactionStatus::Completed,
+            balance_before,
+            balance_after: Some(balance_after),
+            tracking_id: None,
+            receiver_upi_id: None,
+            remarks: Some(format!("adding referral bonus: {}", bonus)),
+            error_reason: None,
+            created_ts: Some(ts),
+            created_by: Some(user_id),
+            updated_ts: None,
+            updated_by: None,
+        }
+    }
+
+    pub fn referrer_bonus_trans(
+        referrer_id: u32,
+        balance_before: Money,
+        balance_after: Money,
+        user_id: u32,
+    ) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            user_id: referrer_id,
+            transaction_type: WalltetTransactionType::ReferrerBonus,
+            amount: Money::new(0, REFERRER_BONUS),
+            status: WalletTransactionStatus::Completed,
+            balance_before,
+            balance_after: Some(balance_after),
+            tracking_id: None,
+            receiver_upi_id: None,
+            remarks: Some(format!("adding referrer bonus: {}", REFERRER_BONUS)),
             error_reason: None,
             created_ts: Some(ts),
             created_by: Some(user_id),

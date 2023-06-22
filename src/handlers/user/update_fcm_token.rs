@@ -5,6 +5,7 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
+use crate::database::AppDatabase;
 use crate::{
     constants::*,
     jwt::JwtClaims,
@@ -12,14 +13,13 @@ use crate::{
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-use crate::database::AppDatabase;
-
 #[derive(Debug, Deserialize, Validate)]
 pub struct ReqBody {
     #[validate(length(min = 1))]
     token: String,
 }
 
+/// Update fcmToken for an user
 pub async fn update_fcm_token_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,

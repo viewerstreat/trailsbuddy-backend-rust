@@ -51,10 +51,15 @@ use crate::{
         temp_api::{temp_api_get_otp, temp_api_get_token},
         upload::single::upload_handler,
         user::{
-            check_otp::check_otp_handler, create::create_user_handler,
-            get_leaderboard::get_leaderboard_handler, login::login_handler,
-            renew_token::renew_token_handler, update::update_user_handler,
-            update_fcm_token::update_fcm_token_handler, verify::verify_user_handler,
+            check_otp::check_otp_handler,
+            create::create_user_handler,
+            get_leaderboard::get_leaderboard_handler,
+            login::login_handler,
+            referral::{create_special_code_handler, use_referral_code_handler},
+            renew_token::renew_token_handler,
+            update::update_user_handler,
+            update_fcm_token::update_fcm_token_handler,
+            verify::verify_user_handler,
         },
         wallet::{
             add_bal::{add_bal_end_handler, add_bal_init_handler},
@@ -95,13 +100,18 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
         .route("/tempApiGetToken", get(temp_api_get_token))
         .route("/tempApiGetOtp", get(temp_api_get_otp));
     let user_route = Router::new()
-        .route("/verify", get(verify_user_handler))
-        .route("/getLeaderboard", get(get_leaderboard_handler))
-        .route("/login", post(login_handler))
         .route("/create", post(create_user_handler))
+        .route("/login", post(login_handler))
+        .route("/verify", get(verify_user_handler))
         .route("/checkOtp", get(check_otp_handler))
+        .route("/getLeaderboard", get(get_leaderboard_handler))
         .route("/updateFcmToken", post(update_fcm_token_handler))
         .route("/renewToken", post(renew_token_handler))
+        .route(
+            "/createSpecialReferralCode",
+            post(create_special_code_handler),
+        )
+        .route("/useReferralCode", post(use_referral_code_handler))
         .route("/update", post(update_user_handler));
     let clip_route = Router::new()
         .route("/", get(get_clips_handler))

@@ -1,7 +1,9 @@
+use chrono::prelude::*;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
 use super::wallet::Money;
+use crate::utils::get_epoch_ts;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -46,7 +48,7 @@ pub struct User {
     pub referral_code: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub referred_by: Option<String>,
+    pub referred_by: Option<u32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_played: Option<u32>,
@@ -65,6 +67,42 @@ pub struct User {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fcm_tokens: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecialReferralCode {
+    referral_code: String,
+    bonus: u64,
+    is_active: bool,
+    valid_till: u64,
+    created_ts: u64,
+    updated_ts: Option<u64>,
+    created_by: u32,
+    updated_by: Option<u32>,
+}
+
+impl SpecialReferralCode {
+    pub fn new(
+        referral_code: &str,
+        bonus: u64,
+        valid_till: &DateTime<Utc>,
+        created_by: u32,
+    ) -> Self {
+        Self {
+            referral_code: referral_code.to_owned(),
+            bonus,
+            is_active: true,
+            valid_till: valid_till.timestamp() as u64,
+            created_ts: get_epoch_ts(),
+            created_by,
+            updated_ts: None,
+            updated_by: None,
+        }
+    }
+    pub fn bonus(&self) -> u64 {
+        self.bonus
+    }
 }
 
 #[derive(Debug, Serialize)]

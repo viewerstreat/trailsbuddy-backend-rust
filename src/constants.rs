@@ -4,6 +4,7 @@ pub const MONGO_MAX_POOL_SIZE: u32 = 10;
 pub const MONGO_CONN_TIMEOUT: u64 = 10;
 pub const DEFAULT_QUERY_LIMIT: u64 = 1000;
 pub const OTP_LENGTH: u32 = 6;
+pub const REFERRAL_CODE_LEN: usize = 8;
 pub const OTP_VALIDITY_MINS: u64 = 10;
 pub const FIREBASE_SERVICE_CLIENT_EMAIL: &str =
     "firebase-adminsdk-xjwbm@trailsbuddy-1-3fbd5.iam.gserviceaccount.com";
@@ -29,6 +30,8 @@ pub const PUSH_MSG_LOGO_PATH: &str =
 pub const PUSH_MESSAGE_TITLE: &str = "Trailsbuddy";
 pub const NOTI_JOB_MAX_RETRY_COUNT: u32 = 10;
 pub const NOTI_JOB_FETCH_LIMIT: i64 = 10;
+pub const REFERRER_BONUS: u64 = 100;
+pub const REFERRAL_BONUS: u64 = 100;
 
 pub const DB_NAME: &str = "treatviewers2";
 
@@ -45,6 +48,7 @@ pub const COLL_WALLETS: &str = "wallets";
 pub const COLL_WALLET_TRANSACTIONS: &str = "walletTransactions";
 pub const COLL_NOTIFICATION_REQUESTS: &str = "notificationRequests";
 pub const COLL_NOTIFICATION_CONTENTS: &str = "notificationContents";
+pub const COLL_SPECIAL_REFERRAL_CODES: &str = "specialReferralCodes";
 
 pub const USER_ID_SEQ: &str = "USER_ID_SEQ";
 

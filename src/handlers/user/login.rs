@@ -246,6 +246,7 @@ async fn create_user(
     user.total_earning = Some(Money::default());
     user.created_ts = Some(ts);
     user.last_login_time = Some(ts);
+    user.has_used_referral_code = Some(false);
     user.referral_code = Some(referral_code);
     db.insert_one::<User>(DB_NAME, COLL_USERS, &user, None)
         .await?;

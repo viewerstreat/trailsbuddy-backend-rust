@@ -11,8 +11,6 @@ use std::{
 use super::AppError;
 use crate::{constants::*, jwt::JWT_KEYS};
 
-const CODE_LEN: usize = 8;
-
 /// Get EPOCH timestamp in seconds
 pub fn get_epoch_ts() -> u64 {
     match SystemTime::now().duration_since(UNIX_EPOCH) {
@@ -52,7 +50,7 @@ pub fn generate_referral_code(id: u32, name: &str) -> String {
     let id = id % 1000;
     let id = id.to_string();
     for ch in id.chars() {
-        if code.len() >= CODE_LEN {
+        if code.len() >= REFERRAL_CODE_LEN {
             break;
         }
         if ch.is_ascii_digit() && ch != '0' {
@@ -60,7 +58,7 @@ pub fn generate_referral_code(id: u32, name: &str) -> String {
         }
     }
     // fill rest all characters with random digits
-    for _ in code.len()..CODE_LEN {
+    for _ in code.len()..REFERRAL_CODE_LEN {
         code.push(char::from_digit(get_random_num(1, 10), 10).unwrap_or('0'));
     }
 
@@ -176,11 +174,11 @@ mod tests {
     #[test]
     fn test_generate_referral_code() {
         let code = generate_referral_code(1, "");
-        assert_eq!(code.len(), CODE_LEN);
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
         let code = generate_referral_code(0, "");
-        assert_eq!(code.len(), CODE_LEN);
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
         let code = generate_referral_code(0, "Siba");
-        assert_eq!(code.len(), CODE_LEN);
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
         assert!(code.chars().all(|ch| ch != '0'));
         let mut chars = code.chars();
         assert_eq!(chars.next(), Some('S'));
@@ -188,14 +186,14 @@ mod tests {
         assert_eq!(chars.next(), Some('B'));
         let code = generate_referral_code(1, "Mr. Bachchan");
         let mut chars = code.chars();
-        assert_eq!(code.len(), CODE_LEN);
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
         assert_eq!(chars.next(), Some('M'));
         assert_eq!(chars.next(), Some('R'));
         assert_eq!(chars.next(), Some('B'));
         assert_eq!(chars.next(), Some('1'));
         let code = generate_referral_code(14563, "Sibaprasad Maiti");
         let mut chars = code.chars();
-        assert_eq!(code.len(), CODE_LEN);
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
         assert_eq!(chars.next(), Some('S'));
         assert_eq!(chars.next(), Some('I'));
         assert_eq!(chars.next(), Some('B'));

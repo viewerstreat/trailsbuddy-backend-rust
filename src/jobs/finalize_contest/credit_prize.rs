@@ -70,7 +70,7 @@ pub async fn credit_prize_value(
     Ok(())
 }
 
-async fn get_user_balance(
+pub async fn get_user_balance(
     db: &AppDatabase,
     session: &mut ClientSession,
     user_id: u32,

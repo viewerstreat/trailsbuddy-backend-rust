@@ -8,14 +8,13 @@ use std::sync::Arc;
 use validator::Validate;
 
 use super::create::{check_uniq_email, check_uniq_phone};
+use crate::database::AppDatabase;
 use crate::{
     constants::*,
     jwt::JwtClaims,
     models::user::User,
     utils::{get_epoch_ts, validate_phonenumber, AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Default, Clone, Deserialize, Validate)]
 pub struct UpdateUserReq {
@@ -39,6 +38,8 @@ pub struct UpdateResponse {
     data: User,
 }
 
+/// Update name, phone, email or profilePic field in user details
+/// phone and email fields are checked for unique value if provided
 pub async fn update_user_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
@@ -50,7 +51,8 @@ pub async fn update_user_handler(
         && body.email.is_none()
         && body.profile_pic.is_none()
     {
-        let err = AppError::BadRequestErr("name/phone/email/profilePic is required".into());
+        let err = "name/phone/email/profilePic is required";
+        let err = AppError::BadRequestErr(err.into());
         return Err(err);
     }
     // check if phone already exists in the DB

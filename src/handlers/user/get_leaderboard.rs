@@ -20,7 +20,13 @@ pub async fn get_leaderboard_handler(
     State(db): State<Arc<AppDatabase>>,
 ) -> Result<Json<Response>, AppError> {
     let filter = Some(doc! {"isActive": true, "totalPlayed": {"$gt": 0}});
-    let sort = doc! {"totalEarning": -1, "contestWon": -1, "totalPlayed": -1, "id": 1};
+    let sort = doc! {
+        "totalEarning.real": -1,
+        "totalEarning.bonus": -1,
+        "contestWon": -1,
+        "totalPlayed": -1,
+        "id": 1
+    };
     let mut options = FindOptions::default();
     options.sort = Some(sort);
     let options = Some(options);
