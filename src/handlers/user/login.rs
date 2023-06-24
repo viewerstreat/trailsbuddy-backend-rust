@@ -214,7 +214,7 @@ pub async fn update_user_login(
 ) -> Result<User, AppError> {
     let filter = doc! {"id": user_id};
     let ts = get_epoch_ts() as i64;
-    let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme.to_bson()?}};
+    let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme}};
     let mut options = FindOneAndUpdateOptions::default();
     options.upsert = Some(false);
     options.return_document = Some(ReturnDocument::After);

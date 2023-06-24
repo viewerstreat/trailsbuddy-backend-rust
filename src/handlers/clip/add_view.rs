@@ -1,17 +1,17 @@
 use axum::{extract::State, Json};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::database::AppDatabase;
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
     models::clip::{Clips, ViewsEntry},
-    utils::{get_epoch_ts, AppError},
+    utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
 #[derive(Debug, Deserialize)]
@@ -38,18 +38,15 @@ pub async fn add_clip_view_handler(
         user_id: claims.id,
         updated_ts: Some(ts),
     };
-    let clip_id = ObjectId::parse_str(body.clip_id).map_err(|err| {
-        tracing::debug!("not able to parse clip_id: {:?}", err);
-        AppError::BadRequestErr("not able to parse clip_id".into())
-    })?;
+    let clip_id = parse_object_id(&body.clip_id, "not able to parse clip_id")?;
     let filter = Some(doc! {"_id": clip_id.clone()});
     let clip = db
         .find_one::<Clips>(DB_NAME, COLL_CLIPS, filter, None)
-        .await?;
-    let Some(clip) = clip else {
-        let err = AppError::NotFound("Clip not found".into());
-        return Err(err);
-    };
+        .await?
+        .ok_or(AppError::NotFound("Clip not found".into()))?;
+    // Note: `views` array should not contain duplicate entry for same user
+    // also this endpoint be called multiple times for same clip and same user id
+    // in that case we must return OK response
     if let Some(views) = &clip.views {
         if views.iter().any(|v| v.user_id == claims.id) {
             let view_count = views.len() as u32;

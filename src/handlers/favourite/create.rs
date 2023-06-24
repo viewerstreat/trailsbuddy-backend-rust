@@ -1,48 +1,22 @@
 use axum::{extract::State, Json};
-use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::bson::doc;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
-use std::{
-    fmt::{self, Display},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
-    models::clip::LikesEntry,
-    utils::{get_epoch_ts, AppError},
+    models::clip::{LikesEntry, Media, MediaType},
+    utils::{get_epoch_ts, parse_object_id, AppError},
 };
-
-use crate::database::AppDatabase;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum MediaType {
-    Clip,
-    Movie,
-}
-
-impl Display for MediaType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Clip => write!(f, "clip"),
-            Self::Movie => write!(f, "movie"),
-        }
-    }
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReqBody {
     media_type: MediaType,
     media_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Media {
-    _id: ObjectId,
-    likes: Option<Vec<LikesEntry>>,
 }
 
 pub async fn add_favourite_handler(
@@ -54,10 +28,7 @@ pub async fn add_favourite_handler(
         MediaType::Clip => COLL_CLIPS,
         MediaType::Movie => COLL_MOVIES,
     };
-    let oid = ObjectId::parse_str(body.media_id.as_str()).map_err(|err| {
-        tracing::debug!("{:?}", err);
-        AppError::BadRequestErr("not able to parse mediaId".into())
-    })?;
+    let oid = parse_object_id(&body.media_id, "not able to parse mediaId")?;
     let ts = get_epoch_ts() as i64;
     let filter = doc! {"_id": oid, "isActive": true};
     let media = db

@@ -13,10 +13,14 @@ pub enum LoginScheme {
     GOOGLE,
     FACEBOOK,
 }
-impl LoginScheme {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
+
+impl From<LoginScheme> for Bson {
+    fn from(value: LoginScheme) -> Self {
+        match value {
+            LoginScheme::OTP_BASED => Self::String("OTP_BASED".to_owned()),
+            LoginScheme::GOOGLE => Self::String("GOOGLE".to_owned()),
+            LoginScheme::FACEBOOK => Self::String("FACEBOOK".to_owned()),
+        }
     }
 }
 

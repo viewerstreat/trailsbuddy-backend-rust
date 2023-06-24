@@ -1,16 +1,16 @@
 use axum::{extract::State, Json};
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::Validate;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
     models::clip::{ClipRespData, Clips},
     utils::{AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
@@ -36,6 +36,15 @@ pub async fn create_clip_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateClipReqBody>,
 ) -> Result<Json<Response>, AppError> {
+    let filter = doc! {"name": &body.name};
+    let clip = db
+        .find_one::<Clips>(DB_NAME, COLL_CLIPS, Some(filter), None)
+        .await?;
+    if clip.is_some() {
+        let err = "Clip exists with same name";
+        let err = AppError::BadRequestErr(err.into());
+        return Err(err);
+    }
     let clip = Clips::new(
         &body.name,
         &body.description,

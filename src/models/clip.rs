@@ -1,4 +1,4 @@
-use mongodb::bson::{doc, Bson};
+use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::get_epoch_ts;
@@ -76,6 +76,28 @@ pub struct ClipRespData {
     likes: Option<Vec<LikesEntry>>,
     views: Option<Vec<ViewsEntry>>,
     is_active: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MediaType {
+    Clip,
+    Movie,
+}
+
+impl From<&MediaType> for Bson {
+    fn from(value: &MediaType) -> Self {
+        match value {
+            MediaType::Clip => Self::String("clip".to_owned()),
+            MediaType::Movie => Self::String("movie".to_owned()),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Media {
+    _id: ObjectId,
+    pub likes: Option<Vec<LikesEntry>>,
 }
 
 impl Clips {
