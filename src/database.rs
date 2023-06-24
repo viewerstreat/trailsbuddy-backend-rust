@@ -12,6 +12,7 @@ use mongodb::{
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
 
+
 pub struct AppDatabase(pub Client);
 
 #[derive(Debug)]

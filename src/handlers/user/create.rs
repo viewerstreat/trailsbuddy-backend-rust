@@ -135,6 +135,60 @@ pub async fn create_uniq_referral_code(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use axum::http::StatusCode;
+    use axum::{body::Body, http::Request, routing::post, Router};
+    use dotenvy::dotenv;
+    use tower::ServiceExt; // for `oneshot` and `ready`
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_create_user_handler_missing_name_field() {
+        dotenv().ok();
+        // create database client
+        let db_client = AppDatabase::new()
+            .await
+            .expect("Unable to accquire database client");
+        let db_client = Arc::new(db_client);
+        let app = Router::new()
+            .route("/user/create", post(create_user_handler))
+            .with_state(db_client);
+        let req = Request::builder()
+            .uri("/user/create")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(Body::from(r#"{}"#))
+            .unwrap();
+        let app = app.clone();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_create_user_handler_missing_phone_field() {
+        dotenv().ok();
+        // create database client
+        let db_client = AppDatabase::new()
+            .await
+            .expect("Unable to accquire database client");
+        let db_client = Arc::new(db_client);
+        let app = Router::new()
+            .route("/user/create", post(create_user_handler))
+            .with_state(db_client);
+
+        let req = Request::builder()
+            .uri("/user/create")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(Body::from(r#"{"name": "TestUser1"}"#))
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+}
+
 // --------------------------------------------------------------------------
 // Tests
 // - empty object in request body -> 422 Unprocessable Entity

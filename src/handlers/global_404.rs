@@ -18,7 +18,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_default_route_handler() {
+    async fn test_global_404_handler() {
         let app = Router::new()
             .route("/", get(|| async {}))
             .fallback(global_404_handler);
