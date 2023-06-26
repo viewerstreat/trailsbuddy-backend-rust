@@ -2,13 +2,17 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{constants::*, jwt::JwtClaims, models::movie::Movie, utils::AppError};
-
-use crate::database::AppDatabase;
+use crate::{
+    constants::*,
+    database::AppDatabase,
+    jwt::JwtClaims,
+    models::movie::Movie,
+    utils::{parse_object_id, AppError},
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,16 +32,14 @@ pub async fn is_liked_by_me_handler(
     State(db): State<Arc<AppDatabase>>,
     Query(params): Query<Params>,
 ) -> Result<Json<Response>, AppError> {
-    let oid = ObjectId::parse_str(params.movie_id.as_str()).map_err(|err| {
-        tracing::debug!("{:?}", err);
-        AppError::BadRequestErr("invalid movieId".into())
-    })?;
+    let oid = parse_object_id(&params.movie_id, "invalid movieId")?;
     let filter = Some(doc! {"_id": oid});
     let movie = db
         .find_one::<Movie>(DB_NAME, COLL_MOVIES, filter, None)
         .await?
         .ok_or(AppError::NotFound("movie not found".into()))?;
     let is_liked_by_me = movie
+        .props
         .likes
         .and_then(|likes| {
             let is_liked = likes

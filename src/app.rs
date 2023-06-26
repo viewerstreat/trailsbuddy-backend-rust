@@ -12,6 +12,7 @@ use tower_http::{
     ServiceBuilderExt,
 };
 
+use crate::database::AppDatabase;
 use crate::{
     constants::*,
     handlers::{
@@ -69,8 +70,6 @@ use crate::{
         },
     },
 };
-
-use crate::database::AppDatabase;
 
 /// Initializes the app with all routes and middlewares
 pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {

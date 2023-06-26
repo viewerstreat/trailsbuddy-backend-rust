@@ -3,16 +3,15 @@ use axum::{
     http::HeaderMap,
     Json,
 };
-use mongodb::bson::{doc, oid::ObjectId, Document};
+use mongodb::bson::{doc, Document};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
-    utils::{error_handler::AppError, get_epoch_ts, get_user_id_from_token},
+    database::AppDatabase,
+    utils::{error_handler::AppError, get_epoch_ts, get_user_id_from_token, parse_object_id},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Serialize)]
 pub struct Response {
@@ -49,10 +48,7 @@ fn create_find_by_doc(params: &Query<Params>) -> Result<Document, AppError> {
     let ts = get_epoch_ts() as i64;
     let mut find_by = doc! {"isActive": true, "moviePromotionExpiry": {"$gt": ts}};
     if let Some(id) = &params.id {
-        let oid = ObjectId::parse_str(id).map_err(|err| {
-            tracing::debug!("Unable to parse _id params: {:?}", err);
-            AppError::BadRequestErr("Unable to parse _id".into())
-        })?;
+        let oid = parse_object_id(id, "Unable to parse _id")?;
         find_by.insert("_id", oid);
     }
     Ok(find_by)

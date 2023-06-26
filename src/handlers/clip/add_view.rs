@@ -47,7 +47,7 @@ pub async fn add_clip_view_handler(
     // Note: `views` array should not contain duplicate entry for same user
     // also this endpoint be called multiple times for same clip and same user id
     // in that case we must return OK response
-    if let Some(views) = &clip.views {
+    if let Some(views) = &clip.props.views {
         if views.iter().any(|v| v.user_id == claims.id) {
             let view_count = views.len() as u32;
             let res = Response {
@@ -68,6 +68,7 @@ pub async fn add_clip_view_handler(
         .await?
         .ok_or(anyhow::anyhow!("Not able to update any document"))?;
     let view_count = result
+        .props
         .views
         .and_then(|view| Some(view.len() as u32))
         .unwrap_or_default();

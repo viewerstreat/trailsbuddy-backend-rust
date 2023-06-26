@@ -1,6 +1,6 @@
 use axum::{extract::State, Json};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
 use serde::{Deserialize, Serialize};
@@ -8,12 +8,11 @@ use std::sync::Arc;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
     models::{clip::ViewsEntry, movie::Movie},
-    utils::{get_epoch_ts, AppError},
+    utils::{get_epoch_ts, parse_object_id, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,19 +38,13 @@ pub async fn add_movie_view_handler(
         user_id: claims.id,
         updated_ts: Some(ts),
     };
-    let movie_id = ObjectId::parse_str(body.movie_id).map_err(|err| {
-        tracing::debug!("not able to parse movie_id: {:?}", err);
-        AppError::BadRequestErr("not able to parse movie_id".into())
-    })?;
+    let movie_id = parse_object_id(&body.movie_id, "not able to parse movie_id")?;
     let filter = Some(doc! {"_id": movie_id.clone()});
     let movie = db
         .find_one::<Movie>(DB_NAME, COLL_MOVIES, filter, None)
-        .await?;
-    let Some(movie) = movie else {
-        let err = AppError::NotFound("Movie not found".into());
-        return Err(err);
-    };
-    if let Some(views) = &movie.views {
+        .await?
+        .ok_or(AppError::NotFound("Movie not found".into()))?;
+    if let Some(views) = &movie.props.views {
         if views.iter().any(|v| v.user_id == claims.id) {
             let view_count = views.len() as u32;
             let res = Response {
@@ -72,6 +65,7 @@ pub async fn add_movie_view_handler(
         .await?
         .ok_or(anyhow::anyhow!("Not able to update any document"))?;
     let view_count = result
+        .props
         .views
         .and_then(|view| Some(view.len() as u32))
         .unwrap_or_default();

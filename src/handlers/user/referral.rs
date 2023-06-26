@@ -23,7 +23,7 @@ use crate::{
         user::{SpecialReferralCode, User},
         wallet::{Money, Wallet, WalletTransaction},
     },
-    utils::{get_epoch_ts, AppError, ValidatedBody},
+    utils::{get_epoch_ts, validation::validate_future_timestamp, AppError, ValidatedBody},
 };
 
 lazy_static! {
@@ -47,6 +47,7 @@ pub struct SpecialCodeReqBody {
     #[validate(range(min = 1))]
     bonus: u64,
     #[serde(with = "ts_seconds")]
+    #[validate(custom = "validate_future_timestamp")]
     valid_till: DateTime<Utc>,
 }
 

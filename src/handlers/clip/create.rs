@@ -8,8 +8,8 @@ use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaims,
-    models::clip::{ClipRespData, Clips},
-    utils::{AppError, ValidatedBody},
+    models::clip::{ClipProps, ClipRespData, Clips},
+    utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
 #[derive(Debug, Deserialize, Validate)]
@@ -36,22 +36,24 @@ pub async fn create_clip_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateClipReqBody>,
 ) -> Result<Json<Response>, AppError> {
-    let filter = doc! {"name": &body.name};
-    let clip = db
-        .find_one::<Clips>(DB_NAME, COLL_CLIPS, Some(filter), None)
-        .await?;
-    if clip.is_some() {
-        let err = "Clip exists with same name";
-        let err = AppError::BadRequestErr(err.into());
-        return Err(err);
-    }
-    let clip = Clips::new(
-        &body.name,
-        &body.description,
-        &body.banner_image_url,
-        &body.video_url,
-        claims.id,
-    );
+    check_duplicate_name(&db, &body.name).await?;
+    let ts = get_epoch_ts();
+    let clip_props = ClipProps {
+        name: body.name,
+        description: body.description,
+        banner_image_url: body.banner_image_url,
+        video_url: body.video_url,
+        is_active: true,
+        likes: Some(vec![]),
+        views: Some(vec![]),
+    };
+    let clip = Clips {
+        props: clip_props,
+        created_by: Some(claims.id),
+        created_ts: Some(ts),
+        updated_by: None,
+        updated_ts: None,
+    };
     let result = db
         .insert_one::<Clips>(DB_NAME, COLL_CLIPS, &clip, None)
         .await?;
@@ -60,4 +62,17 @@ pub async fn create_clip_handler(
         data: clip.to_clip_resp_data(&result),
     };
     Ok(Json(res))
+}
+
+async fn check_duplicate_name(db: &Arc<AppDatabase>, name: &str) -> Result<(), AppError> {
+    let filter = doc! {"name": name};
+    let clip = db
+        .find_one::<Clips>(DB_NAME, COLL_CLIPS, Some(filter), None)
+        .await?;
+    if clip.is_some() {
+        let err = "Clip exists with same name";
+        let err = AppError::BadRequestErr(err.into());
+        return Err(err);
+    }
+    Ok(())
 }
