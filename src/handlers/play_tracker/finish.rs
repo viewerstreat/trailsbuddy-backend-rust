@@ -1,6 +1,6 @@
 use axum::{extract::State, Json};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
 use serde::{Deserialize, Serialize};
@@ -9,15 +9,12 @@ use validator::Validate;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
+    handlers::play_tracker::{answer::check_play_tracker, get::validate_contest},
     jwt::JwtClaims,
-    models::{
-        contest::ContestStatus,
-        play_tracker::{PlayTracker, PlayTrackerContest, PlayTrackerStatus},
-    },
+    models::play_tracker::{PlayTracker, PlayTrackerStatus},
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
@@ -40,11 +37,11 @@ pub async fn finish_play_tracker_handler(
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
-        check_play_tracker(&db, &contest_id, claims.id)
+        check_play_tracker(&db, &body.contest_id, claims.id)
     );
     let _contest = contest_result?;
     let _play_tracker = play_tracker_result?;
-    let play_tracker = update_play_tracker(&db, &contest_id, claims.id).await?;
+    let play_tracker = update_play_tracker(&db, &body.contest_id, claims.id).await?;
     let res = Response {
         success: true,
         data: play_tracker,
@@ -53,44 +50,9 @@ pub async fn finish_play_tracker_handler(
     Ok(Json(res))
 }
 
-async fn validate_contest(
-    db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
-) -> Result<PlayTrackerContest, AppError> {
-    let ts = get_epoch_ts() as i64;
-    let filter = doc! {
-        "_id": contest_id,
-        "status": ContestStatus::ACTIVE.to_bson()?,
-        "startTime": {"$lt": ts },
-        "endTime": {"$gt": ts}
-    };
-    let contest = db
-        .find_one::<PlayTrackerContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
-        .await?
-        .ok_or(AppError::NotFound("contest not found".into()))?;
-    Ok(contest)
-}
-
-async fn check_play_tracker(
-    db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
-    user_id: u32,
-) -> Result<PlayTracker, AppError> {
-    let filter = doc! {
-        "contestId": contest_id,
-        "userId": user_id,
-        "status": PlayTrackerStatus::STARTED.to_bson()?,
-    };
-    let play_tracker = db
-        .find_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, Some(filter), None)
-        .await?
-        .ok_or(AppError::NotFound("Play Tracker not found".into()))?;
-    Ok(play_tracker)
-}
-
 async fn update_play_tracker(
     db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
+    contest_id: &str,
     user_id: u32,
 ) -> Result<PlayTracker, AppError> {
     let ts = get_epoch_ts() as i64;
@@ -100,10 +62,12 @@ async fn update_play_tracker(
         "status": PlayTrackerStatus::STARTED.to_bson()?,
     };
     let update = doc! {
-        "status": PlayTrackerStatus::FINISHED.to_bson()?,
-        "finishTs": ts,
-        "updatedTs": ts,
-        "updatedBy": user_id
+        "$set": {
+            "status": PlayTrackerStatus::FINISHED.to_bson()?,
+            "finishTs": ts,
+            "updatedTs": ts,
+            "updatedBy": user_id
+        }
     };
     let options = FindOneAndUpdateOptions::builder()
         .return_document(Some(ReturnDocument::After))

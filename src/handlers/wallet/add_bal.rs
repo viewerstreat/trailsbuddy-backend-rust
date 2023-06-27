@@ -119,7 +119,10 @@ async fn update_wallet(
 ) -> anyhow::Result<Wallet> {
     let ts = get_epoch_ts() as i64;
     let filter = doc! {"userId": user_id};
-    let update = doc! {"$set": {"updatedTs": ts}, "$inc": {"balance.real": amount}};
+    let update = doc! {
+        "$set": {"updatedTs": ts},
+        "$inc": {"balance.real": amount, "balance.bonus": 0}
+    };
     let options = FindOneAndUpdateOptions::builder()
         .upsert(Some(true))
         .return_document(Some(ReturnDocument::After))

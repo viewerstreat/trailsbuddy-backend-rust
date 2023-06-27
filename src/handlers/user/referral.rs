@@ -253,7 +253,7 @@ async fn update_wallet(
     let filter = doc! {"userId": user_id};
     let ts = get_epoch_ts() as i64;
     let update = doc! {
-        "$inc": { "balance.bonus": bonus as i64},
+        "$inc": { "balance.bonus": bonus as i64, "balance.real": 0},
         "$set": {"updatedTs": ts}
     };
     let options = FindOneAndUpdateOptions::builder()

@@ -5,15 +5,13 @@ use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
+use super::update::{update_options_question, update_question};
 use crate::{
+    database::AppDatabase,
     jwt::JwtClaims,
     models::contest::ContestStatus,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
-
-use super::update::{update_options_question, update_question};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]

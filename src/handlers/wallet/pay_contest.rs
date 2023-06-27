@@ -11,6 +11,7 @@ use std::sync::Arc;
 use super::get_bal::get_user_balance;
 use crate::{
     constants::*,
+    database::AppDatabase,
     handlers::play_tracker::get::{insert_new_play_tracker, validate_contest},
     jwt::JwtClaims,
     models::{
@@ -19,8 +20,6 @@ use crate::{
     },
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,16 +47,16 @@ pub async fn pay_contest_handler(
     let contest = contest_result?;
     let mut play_tracker = play_tracker_result?;
     let bonus_money_amount = body.bonus_money_amount.unwrap_or_default();
-    debug_assert!(contest.entry_fee_max_bonus_money <= contest.entry_fee);
-    if bonus_money_amount > contest.entry_fee_max_bonus_money {
+    debug_assert!(contest.props.entry_fee_max_bonus_money <= contest.props.entry_fee);
+    if bonus_money_amount > contest.props.entry_fee_max_bonus_money {
         let err = format!(
             "entryFeeMaxBonusMoney is : {}",
-            contest.entry_fee_max_bonus_money
+            contest.props.entry_fee_max_bonus_money
         );
         let err = AppError::BadRequestErr(err);
         return Err(err);
     }
-    let real_money_amount = (contest.entry_fee - bonus_money_amount) as u64;
+    let real_money_amount = (contest.props.entry_fee - bonus_money_amount) as u64;
     let bonus_money_amount = bonus_money_amount as u64;
     let user_balance = get_user_balance(&db, claims.id).await?.unwrap_or_default();
     if user_balance.real() < real_money_amount {

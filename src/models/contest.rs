@@ -1,9 +1,9 @@
-use mongodb::bson::serde_helpers::hex_string_as_object_id;
+use chrono::{prelude::*, serde::ts_seconds};
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::utils::deserialize_helper;
+use crate::utils::{deserialize_helper, get_epoch_ts, validation::validate_future_timestamp};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -46,12 +46,7 @@ pub enum PrizeSelection {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct Contest {
-    #[serde(rename = "_id")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "deserialize_helper")]
-    #[serde(default)]
-    pub _id: Option<String>,
+pub struct ContestProps {
     #[validate(length(min = 1))]
     pub title: String,
     pub category: ContestCategory,
@@ -76,60 +71,118 @@ pub struct Contest {
     pub prize_ratio_denominator: Option<u32>,
     pub prize_value_real_money: u32,
     pub prize_value_bonus_money: u32,
-    #[validate(range(min = 1))]
-    pub start_time: u64,
-    #[validate(range(min = 1))]
-    pub end_time: u64,
-    pub status: Option<ContestStatus>,
+    #[serde(with = "ts_seconds")]
+    #[validate(custom = "validate_future_timestamp")]
+    pub start_time: DateTime<Utc>,
+    #[serde(with = "ts_seconds")]
+    #[validate(custom = "validate_future_timestamp")]
+    pub end_time: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct Contest {
+    #[serde(rename = "_id")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "deserialize_helper")]
+    pub _id: Option<String>,
+    #[serde(flatten)]
+    pub props: ContestProps,
+    pub status: ContestStatus,
     pub created_ts: Option<u64>,
     pub created_by: Option<u32>,
     pub updated_ts: Option<u64>,
     pub updated_by: Option<u32>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub enum ExtraMediaType {
-    Image,
-    Video,
+pub struct ContestWithQuestion {
+    #[serde(rename = "_id")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "deserialize_helper")]
+    pub _id: Option<String>,
+    #[serde(flatten)]
+    pub props: ContestProps,
+    pub status: ContestStatus,
+    pub questions: Option<Vec<Question>>,
+    pub created_ts: Option<u64>,
+    pub created_by: Option<u32>,
+    pub updated_ts: Option<u64>,
+    pub updated_by: Option<u32>,
 }
 
-impl ExtraMediaType {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
-    }
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct AnswerProps {
+    #[validate(range(min = 1, max = 4))]
+    pub option_id: u32,
+    #[validate(length(min = 1, max = 100))]
+    pub option_text: String,
+    pub has_video: bool,
+    pub has_image: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(url)]
+    pub image_or_video_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Answer {
-    #[validate(range(min = 1, max = 4))]
-    pub option_id: u32,
-    #[validate(length(min = 1, max = 100))]
-    pub option_text: String,
+    #[serde(flatten)]
+    #[validate]
+    pub props: AnswerProps,
     pub is_correct: bool,
-    pub extra_media_type: Option<ExtraMediaType>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionProps {
+    #[validate(range(min = 1))]
+    pub question_no: u32,
+    #[validate(length(min = 1, max = 200))]
+    pub question_text: String,
+    pub has_video: bool,
+    pub has_image: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url)]
-    pub extra_media_link: Option<String>,
+    pub image_or_video_url: Option<String>,
 }
 
-impl Answer {
-    pub fn to_bson(&self) -> anyhow::Result<Bson> {
-        let bson = mongodb::bson::to_bson(self)?;
-        Ok(bson)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Question {
-    pub question_no: u32,
-    pub question_text: String,
+    #[serde(flatten)]
+    #[validate]
+    pub props: QuestionProps,
+    #[validate]
     pub options: Vec<Answer>,
     pub is_active: bool,
-    pub extra_media_type: Option<ExtraMediaType>,
-    pub extra_media_link: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionReqBody {
+    #[serde(flatten)]
+    #[validate]
+    pub props: QuestionProps,
+    #[validate]
+    pub options: Vec<Answer>,
+}
+
+impl Contest {
+    pub fn new(props: &ContestProps, user_id: u32) -> Self {
+        let ts = get_epoch_ts();
+        Self {
+            _id: None,
+            props: props.clone(),
+            status: ContestStatus::CREATED,
+            created_ts: Some(ts),
+            created_by: Some(user_id),
+            updated_ts: None,
+            updated_by: None,
+        }
+    }
 }
 
 impl Question {
@@ -139,10 +192,12 @@ impl Question {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct QuestionContest {
-    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
-    _id: String,
-    status: ContestStatus,
-    pub questions: Option<Vec<Question>>,
+impl From<QuestionReqBody> for Question {
+    fn from(value: QuestionReqBody) -> Self {
+        Self {
+            props: value.props,
+            options: value.options,
+            is_active: true,
+        }
+    }
 }

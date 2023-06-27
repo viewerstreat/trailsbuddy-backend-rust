@@ -8,15 +8,14 @@ use std::sync::Arc;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
     models::{
-        contest::ContestStatus,
-        play_tracker::{PlayTracker, PlayTrackerContest},
+        contest::{ContestStatus, ContestWithQuestion},
+        play_tracker::PlayTracker,
     },
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,7 +46,7 @@ pub async fn get_play_tracker_handler(
         };
         return Ok(Json(res));
     }
-    let contest = contest_result?;
+    let _contest = contest_result?;
     let play_tracker = insert_new_play_tracker(claims.id, &params.contest_id, &db).await?;
     let res = Response {
         success: true,
@@ -70,7 +69,7 @@ pub async fn insert_new_play_tracker(
 pub async fn validate_contest(
     db: &Arc<AppDatabase>,
     contest_id: &ObjectId,
-) -> Result<PlayTrackerContest, AppError> {
+) -> Result<ContestWithQuestion, AppError> {
     let ts = get_epoch_ts() as i64;
     let filter = doc! {
         "_id": contest_id,
@@ -79,7 +78,7 @@ pub async fn validate_contest(
         "endTime": {"$gt": ts}
     };
     let contest = db
-        .find_one::<PlayTrackerContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<ContestWithQuestion>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("contest not found".into()))?;
 
