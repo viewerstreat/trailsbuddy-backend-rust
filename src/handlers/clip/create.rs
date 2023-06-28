@@ -7,7 +7,7 @@ use validator::Validate;
 use crate::{
     constants::*,
     database::AppDatabase,
-    jwt::JwtClaims,
+    jwt::JwtClaimsAdmin,
     models::clip::{ClipProps, ClipRespData, Clips},
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
@@ -32,10 +32,11 @@ pub struct Response {
 }
 
 pub async fn create_clip_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateClipReqBody>,
 ) -> Result<Json<Response>, AppError> {
+    let claims = claims.data;
     check_duplicate_name(&db, &body.name).await?;
     let ts = get_epoch_ts();
     let clip_props = ClipProps {

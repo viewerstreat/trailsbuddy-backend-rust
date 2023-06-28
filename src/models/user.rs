@@ -136,3 +136,12 @@ impl LeaderboardData {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminUser {
+    pub id: u32,
+    pub name: String,
+    pub phone: String,
+    pub is_active: bool,
+}

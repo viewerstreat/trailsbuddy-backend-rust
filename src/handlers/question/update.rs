@@ -10,16 +10,17 @@ use super::create::{validate_request, ReqBody};
 use crate::{
     constants::*,
     database::AppDatabase,
-    jwt::JwtClaims,
+    jwt::JwtClaimsAdmin,
     models::contest::{ContestStatus, Question},
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
 pub async fn update_question_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ReqBody>,
 ) -> Result<Json<JsonValue>, AppError> {
+    let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     validate_request(&db, &body, &contest_id, false).await?;
     let ts = get_epoch_ts() as i64;

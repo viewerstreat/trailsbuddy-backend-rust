@@ -49,6 +49,7 @@ pub const COLL_WALLET_TRANSACTIONS: &str = "walletTransactions";
 pub const COLL_NOTIFICATION_REQUESTS: &str = "notificationRequests";
 pub const COLL_NOTIFICATION_CONTENTS: &str = "notificationContents";
 pub const COLL_SPECIAL_REFERRAL_CODES: &str = "specialReferralCodes";
+pub const COLL_ADMIN_USERS: &str = "adminUsers";
 
 pub const USER_ID_SEQ: &str = "USER_ID_SEQ";
 

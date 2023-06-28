@@ -12,7 +12,6 @@ use tower_http::{
     ServiceBuilderExt,
 };
 
-use crate::database::AppDatabase;
 use crate::{
     constants::*,
     handlers::{
@@ -52,6 +51,7 @@ use crate::{
         temp_api::{temp_api_get_otp, temp_api_get_token},
         upload::single::upload_handler,
         user::{
+            admin_login::{admin_generate_otp, admin_signup_handler},
             check_otp::check_otp_handler,
             create::create_user_handler,
             get_leaderboard::get_leaderboard_handler,
@@ -70,6 +70,7 @@ use crate::{
         },
     },
 };
+use crate::{database::AppDatabase, handlers::user::admin_login::admin_login_handler};
 
 /// Initializes the app with all routes and middlewares
 pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
@@ -106,12 +107,16 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
         .route("/getLeaderboard", get(get_leaderboard_handler))
         .route("/updateFcmToken", post(update_fcm_token_handler))
         .route("/renewToken", post(renew_token_handler))
+        .route("/useReferralCode", post(use_referral_code_handler))
+        .route("/update", post(update_user_handler));
+    let admin_route = Router::new()
+        .route("/signup", post(admin_signup_handler))
+        .route("/generateOtp", get(admin_generate_otp))
+        .route("/login", post(admin_login_handler))
         .route(
             "/createSpecialReferralCode",
             post(create_special_code_handler),
-        )
-        .route("/useReferralCode", post(use_referral_code_handler))
-        .route("/update", post(update_user_handler));
+        );
     let clip_route = Router::new()
         .route("/", get(get_clips_handler))
         .route("/", post(create_clip_handler))
@@ -169,7 +174,8 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
         .nest("/contest", contest_route)
         .nest("/wallet", wallet_route)
         .nest("/playTracker", play_tracker_route)
-        .nest("/upload", upload_route);
+        .nest("/upload", upload_route)
+        .nest("/admin", admin_route);
 
     // create the app instance with all routes and middleware
     let app: Router<(), Body> = Router::new()
