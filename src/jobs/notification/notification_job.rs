@@ -2,11 +2,12 @@ use mongodb::{bson::doc, options::FindOptions};
 use std::{sync::Arc, time::Duration};
 use tokio::time::interval;
 
-use super::notification_req::{
-    process_new_req, process_ready_req, NotificationReq, NotificationReqStatus,
-};
+use super::notification_req::{process_new_req, process_ready_req};
 use crate::{
-    constants::*, database::AppDatabase, jobs::notification::google_auth_token::GoogleAuthToken,
+    constants::*,
+    database::AppDatabase,
+    jobs::notification::google_auth_token::GoogleAuthToken,
+    models::notification::{NotificationReq, NotificationReqStatus},
 };
 
 /// This function periodically calls `handle_notification` function

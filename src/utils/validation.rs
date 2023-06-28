@@ -5,8 +5,11 @@ use axum::{
     response::{IntoResponse, Response},
     Json, RequestExt,
 };
+use chrono::{DateTime, Utc};
 use serde_json::json;
 use validator::{Validate, ValidationError};
+
+use super::get_epoch_ts;
 
 /// Custom validator function to check phone number
 pub fn validate_phonenumber(phone: &str) -> Result<(), ValidationError> {
@@ -25,6 +28,17 @@ pub fn validate_phonenumber(phone: &str) -> Result<(), ValidationError> {
         return Err(err);
     }
 
+    Ok(())
+}
+
+/// Custom validator function to check if provided timestamp value is future data
+pub fn validate_future_timestamp(dt: &DateTime<Utc>) -> Result<(), ValidationError> {
+    let curr_ts = get_epoch_ts() as i64;
+    if dt.timestamp() <= curr_ts {
+        let mut err = ValidationError::new("timestamp");
+        err.message = Some(format!("timestamp must be future date").into());
+        return Err(err);
+    }
     Ok(())
 }
 

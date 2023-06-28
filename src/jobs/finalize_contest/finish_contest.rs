@@ -67,8 +67,8 @@ async fn update_contest(
         .as_ref()
         .ok_or(anyhow::anyhow!("contest_id not present"))?;
     let prize_money = Money::new(
-        contest.prize_value_real_money as u64,
-        contest.prize_value_bonus_money as u64,
+        contest.props.prize_value_real_money as u64,
+        contest.props.prize_value_bonus_money as u64,
     );
     let all_play_trackers = get_all_play_trackers(db, session, contest_id).await?;
     let total_player = all_play_trackers.len() as u32;
@@ -76,7 +76,14 @@ async fn update_contest(
     let winners = get_winners(&all_play_trackers, winners_count);
     for winner in winners.iter() {
         credit_prize_value(db, session, winner.user_id, prize_money, contest_id).await?;
-        create_push_for_prize_win(db, session, winner.user_id, &contest.title, prize_money).await?;
+        create_push_for_prize_win(
+            db,
+            session,
+            winner.user_id,
+            &contest.props.title,
+            prize_money,
+        )
+        .await?;
     }
     update_users(db, session, &all_play_trackers, &winners, prize_money).await?;
     update_play_trackers(db, session, contest_id).await?;
@@ -205,11 +212,11 @@ fn sort_play_tracker(a: &PlayTracker, b: &PlayTracker) -> Ordering {
 }
 
 fn get_winners_count(contest: &Contest, total_player: u32) -> u32 {
-    match contest.prize_selection {
-        PrizeSelection::TOP_WINNERS => contest.top_winners_count.unwrap_or_default(),
+    match contest.props.prize_selection {
+        PrizeSelection::TOP_WINNERS => contest.props.top_winners_count.unwrap_or_default(),
         PrizeSelection::RATIO_BASED => {
-            let numerator = contest.prize_ratio_numerator.unwrap_or_default();
-            let denominator = contest.prize_ratio_denominator.unwrap_or(1);
+            let numerator = contest.props.prize_ratio_numerator.unwrap_or_default();
+            let denominator = contest.props.prize_ratio_denominator.unwrap_or(1);
             (numerator * total_player) / denominator
         }
     }

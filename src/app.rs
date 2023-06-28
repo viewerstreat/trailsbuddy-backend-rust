@@ -12,6 +12,7 @@ use tower_http::{
     ServiceBuilderExt,
 };
 
+use crate::database::AppDatabase;
 use crate::{
     constants::*,
     handlers::{
@@ -70,8 +71,6 @@ use crate::{
     },
 };
 
-use crate::database::AppDatabase;
-
 /// Initializes the app with all routes and middlewares
 pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
     tracing::debug!("Initializing the app");
@@ -126,16 +125,16 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
     let fav_route = Router::new()
         .route("/", post(add_favourite_handler))
         .route("/", get(get_favourite_handler));
-    let question_route = Router::new()
-        .route("/", post(create_question_handler))
-        .route("/", get(get_question_handler))
-        .route("/delete", post(delete_question_handler))
-        .route("/update", post(update_question_handler));
     let contest_route = Router::new()
         .route("/", post(create_contest_handler))
         .route("/", get(get_contest_handler))
         .route("/activate", post(activate_contest_handler))
         .route("/inActivate", post(inactivate_contest_handler));
+    let question_route = Router::new()
+        .route("/", post(create_question_handler))
+        .route("/", get(get_question_handler))
+        .route("/delete", post(delete_question_handler))
+        .route("/update", post(update_question_handler));
     let noti_route = Router::new()
         .route("/", get(get_noti_handler))
         .route("/clear", post(clear_noti_handler))

@@ -11,11 +11,10 @@ use std::sync::Arc;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     models::contest::{Contest, ContestCategory, ContestStatus},
     utils::{parse_object_id, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

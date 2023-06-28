@@ -1,4 +1,5 @@
 use axum::{extract::State, Json};
+use chrono::{prelude::*, serde::ts_seconds};
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -6,12 +7,11 @@ use validator::{Validate, ValidationError};
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
-    models::movie::{Movie, MovieRespData},
-    utils::{get_epoch_ts, AppError, ValidatedBody},
+    models::movie::{Movie, MovieProps, MovieRespData},
+    utils::{get_epoch_ts, validation::validate_future_timestamp, AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
 
 fn validate_tags(tags: &Vec<String>) -> Result<(), ValidationError> {
     if tags.iter().any(|tag| tag.is_empty()) {
@@ -39,9 +39,12 @@ pub struct CreateMovieReqBody {
     sponsored_by: String,
     #[validate(url)]
     sponsored_by_logo: Option<String>,
-    release_date: u64,
+    #[serde(with = "ts_seconds")]
+    release_date: DateTime<Utc>,
     release_outlets: Option<Vec<String>>,
-    movie_promotion_expiry: u64,
+    #[serde(with = "ts_seconds")]
+    #[validate(custom = "validate_future_timestamp")]
+    movie_promotion_expiry: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
@@ -57,7 +60,7 @@ pub async fn create_movie_handler(
 ) -> Result<Json<Response>, AppError> {
     check_duplicate_name(&db, &body.name).await?;
     let ts = get_epoch_ts();
-    let movie = Movie {
+    let movie_props = MovieProps {
         name: body.name,
         description: body.description,
         tags: body.tags,
@@ -65,12 +68,15 @@ pub async fn create_movie_handler(
         banner_image_url: body.banner_image_url,
         sponsored_by: Some(body.sponsored_by),
         sponsored_by_logo: body.sponsored_by_logo,
-        release_date: Some(body.release_date),
+        release_date: Some(body.release_date.timestamp() as u64),
         release_outlets: body.release_outlets,
-        movie_promotion_expiry: Some(body.movie_promotion_expiry),
+        movie_promotion_expiry: Some(body.movie_promotion_expiry.timestamp() as u64),
         is_active: true,
         likes: Some(vec![]),
         views: Some(vec![]),
+    };
+    let movie = Movie {
+        props: movie_props,
         created_by: Some(claims.id),
         created_ts: Some(ts),
         updated_by: None,

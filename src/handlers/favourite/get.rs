@@ -6,10 +6,10 @@ use mongodb::bson::{doc, Document};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::create::MediaType;
-use crate::{constants::*, jwt::JwtClaims, utils::error_handler::AppError};
-
-use crate::database::AppDatabase;
+use crate::{
+    constants::*, database::AppDatabase, jwt::JwtClaims, models::clip::MediaType,
+    utils::error_handler::AppError,
+};
 
 #[derive(Debug, Serialize)]
 pub struct Response {
@@ -30,10 +30,7 @@ pub async fn get_favourite_handler(
     State(db): State<Arc<AppDatabase>>,
     params: Query<Params>,
 ) -> Result<Json<Response>, AppError> {
-    let coll = match params.media_type {
-        MediaType::Clip => COLL_CLIPS,
-        MediaType::Movie => COLL_MOVIES,
-    };
+    let coll = media_collection(&params.media_type);
     let pipeline = pipeline_query(&params, claims.id);
     let data = db.aggregate(DB_NAME, coll, pipeline, None).await?;
     let res = Response {
@@ -41,6 +38,13 @@ pub async fn get_favourite_handler(
         data,
     };
     Ok(Json(res))
+}
+
+fn media_collection(media_type: &MediaType) -> &str {
+    match media_type {
+        MediaType::Clip => COLL_CLIPS,
+        MediaType::Movie => COLL_MOVIES,
+    }
 }
 
 fn pipeline_query(params: &Params, user_id: u32) -> Vec<Document> {
@@ -54,7 +58,7 @@ fn pipeline_query(params: &Params, user_id: u32) -> Vec<Document> {
     let skip = page_index * page_size;
     let add_fields = doc! {
         "mediaId": {"$toString": "$_id"},
-        "mediaType": params.media_type.to_string(),
+        "mediaType": &params.media_type,
         "mediaName": "$name",
         "userId": user_id
     };

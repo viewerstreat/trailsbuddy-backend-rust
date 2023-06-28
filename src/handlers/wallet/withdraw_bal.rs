@@ -1,29 +1,26 @@
 use axum::{extract::State, Json};
 use futures::FutureExt;
-use mongodb::{
-    bson::doc,
-    options::{FindOneAndUpdateOptions, ReturnDocument},
-    ClientSession,
-};
+use mongodb::bson::doc;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::add_bal::{
-    update_wallet_transaction, updated_failed_transaction, TRANSACTION_ID_PARSE_ERR,
+use super::{
+    add_bal::TRANSACTION_ID_PARSE_ERR,
+    helper::{
+        insert_wallet_transaction, update_wallet_transaction_session, update_wallet_with_session,
+        updated_failed_transaction,
+    },
 };
 use crate::{
     constants::*,
-    handlers::wallet::get_bal::get_user_balance,
+    database::AppDatabase,
+    handlers::wallet::helper::{get_user_balance, get_wallet_transaction},
     jwt::JwtClaims,
-    models::wallet::{
-        Money, Wallet, WalletTransaction, WalletTransactionStatus, WalltetTransactionType,
-    },
-    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
+    models::wallet::{Money, WalletTransaction, WalletTransactionStatus, WalltetTransactionType},
+    utils::{parse_object_id, AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
@@ -40,9 +37,7 @@ pub async fn withdraw_bal_init_handler(
     ValidatedBody(body): ValidatedBody<WithdrawBalInitReq>,
 ) -> Result<Json<JsonValue>, AppError> {
     let transaction = validate_request(&db, claims.id, &body).await?;
-    let transaction_id = db
-        .insert_one::<WalletTransaction>(DB_NAME, COLL_WALLET_TRANSACTIONS, &transaction, None)
-        .await?;
+    let transaction_id = insert_wallet_transaction(&db, &transaction).await?;
     let res = json!({"success": true, "transactionId": &transaction_id});
     Ok(Json(res))
 }
@@ -57,10 +52,13 @@ async fn validate_request(
         "transactionType": WalltetTransactionType::Withdraw.to_bson()?,
         "status": WalletTransactionStatus::Pending.to_bson()?
     };
+    let filter = Some(filter);
     let (transaction_result, balance_result) = tokio::join!(
-        db.find_one::<WalletTransaction>(DB_NAME, COLL_WALLET_TRANSACTIONS, Some(filter), None),
+        get_wallet_transaction(db, filter),
         get_user_balance(db, user_id)
     );
+    // If there is already a pending withdraw request then disallow to create another one
+    // In all possibilities it must be some kind of errorneous scenario which should be investigated
     if transaction_result?.is_some() {
         let err = "Already a pending withdraw request exists";
         let err = AppError::BadRequestErr(err.into());
@@ -71,6 +69,13 @@ async fn validate_request(
     let user_balance = balance_result?.unwrap_or_default();
     if user_balance.real() < body.amount {
         let err = "Insufficient balance";
+        let err = AppError::BadRequestErr(err.into());
+        tracing::debug!("{:?}", err);
+        tracing::debug!("{:?}", body);
+        return Err(err);
+    }
+    if user_balance.withdrawable() < body.amount {
+        let err = "Not enough withdrawable balance";
         let err = AppError::BadRequestErr(err.into());
         tracing::debug!("{:?}", err);
         tracing::debug!("{:?}", body);
@@ -122,14 +127,15 @@ async fn handle_success_transaction(
     let transaction_id = parse_object_id(&body.transaction_id, TRANSACTION_ID_PARSE_ERR)?;
     db.execute_transaction(None, None, |db, session| {
         let tracking_id = body.tracking_id.clone();
-        let amount = body.amount as i64;
+        let amount = body.amount;
         async move {
-            let wallet = update_wallet(db, session, user_id, amount).await?;
-            update_wallet_transaction(
+            let (_, balance_after) =
+                update_wallet_with_session(db, session, user_id, amount, 0, true, true).await?;
+            update_wallet_transaction_session(
                 db,
                 session,
                 &transaction_id,
-                &wallet.balance(),
+                balance_after,
                 &tracking_id,
             )
             .await?;
@@ -140,32 +146,6 @@ async fn handle_success_transaction(
     .await?;
 
     Ok(())
-}
-
-async fn update_wallet(
-    db: &AppDatabase,
-    session: &mut ClientSession,
-    user_id: u32,
-    amount: i64,
-) -> anyhow::Result<Wallet> {
-    let ts = get_epoch_ts() as i64;
-    let filter = doc! {"userId": user_id, "balance.real": {"$gte": amount}};
-    let update = doc! {"$set": {"updatedTs": ts}, "$inc": {"balance.real": amount * -1}};
-    let options = FindOneAndUpdateOptions::builder()
-        .return_document(Some(ReturnDocument::After))
-        .build();
-    let wallet = db
-        .find_one_and_update_with_session::<Wallet>(
-            session,
-            DB_NAME,
-            COLL_WALLETS,
-            filter,
-            update,
-            Some(options),
-        )
-        .await?
-        .ok_or(anyhow::anyhow!("not able to update wallet"))?;
-    Ok(wallet)
 }
 
 async fn handle_failed_transaction(
@@ -197,8 +177,9 @@ async fn validate_end_request(
         "status": WalletTransactionStatus::Pending.to_bson()?,
         "transactionType": WalltetTransactionType::Withdraw.to_bson()?
     };
+    let filter = Some(filter);
     let (transaction_result, balance_result) = tokio::join!(
-        db.find_one::<WalletTransaction>(DB_NAME, COLL_WALLET_TRANSACTIONS, Some(filter), None),
+        get_wallet_transaction(db, filter),
         get_user_balance(db, user_id)
     );
     let transaction =
@@ -217,6 +198,16 @@ async fn validate_end_request(
         let msg = Some(msg);
         updated_failed_transaction(db, user_id, &transaction_id, &msg, &body.tracking_id).await?;
         let err = AppError::BadRequestErr(msg.unwrap());
+        return Err(err);
+    }
+    if user_balance.withdrawable() < amount.real() {
+        let err = format!(
+            "Not enough withdrawable balance, available: {}",
+            user_balance.withdrawable()
+        );
+        let err = AppError::BadRequestErr(err.into());
+        tracing::debug!("{:?}", err);
+        tracing::debug!("{:?}", body);
         return Err(err);
     }
 

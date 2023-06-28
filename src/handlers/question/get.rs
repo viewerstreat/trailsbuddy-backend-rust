@@ -8,12 +8,11 @@ use std::sync::Arc;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
-    models::contest::{Question, QuestionContest},
+    models::contest::{ContestWithQuestion, Question},
     utils::{parse_object_id, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,7 +34,7 @@ pub async fn get_question_handler(
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
     let contest = db
-        .find_one::<QuestionContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<ContestWithQuestion>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("Contest not found".into()))?;
     let data = contest
