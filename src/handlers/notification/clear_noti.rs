@@ -7,11 +7,10 @@ use validator::Validate;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct ClearNotiReq {
