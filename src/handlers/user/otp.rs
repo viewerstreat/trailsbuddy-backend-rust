@@ -28,6 +28,7 @@ pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::R
     let otp = generate_otp(OTP_LENGTH);
     let otp = Otp::new(user_id, otp.as_str());
     db.insert_one::<Otp>(DB_NAME, COLL_OTP, &otp, None).await?;
+    #[cfg(not(test))]
     send_otp(phone, &otp.otp);
     Ok(())
 }

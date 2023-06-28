@@ -137,55 +137,101 @@ pub async fn create_uniq_referral_code(
 
 #[cfg(test)]
 mod tests {
-    use axum::http::StatusCode;
-    use axum::{body::Body, http::Request, routing::post, Router};
-    use dotenvy::dotenv;
-    use tower::ServiceExt; // for `oneshot` and `ready`
+    use crate::utils::get_random_num;
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_create_user_handler_missing_name_field() {
-        dotenv().ok();
-        // create database client
-        let db_client = AppDatabase::new()
-            .await
-            .expect("Unable to accquire database client");
-        let db_client = Arc::new(db_client);
-        let app = Router::new()
-            .route("/user/create", post(create_user_handler))
-            .with_state(db_client);
-        let req = Request::builder()
-            .uri("/user/create")
-            .method("POST")
-            .header("Content-Type", "application/json")
-            .body(Body::from(r#"{}"#))
-            .unwrap();
-        let app = app.clone();
-        let res = app.oneshot(req).await.unwrap();
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    #[test]
+    fn validate_create_user_req_empty_name() {
+        let req_body = CreateUserReq {
+            name: "".to_string(),
+            phone: "1234123412".to_string(),
+            email: None,
+            profile_pic: None,
+        };
+        let res = req_body.validate();
+        let msg = res.err().unwrap().to_string();
+        println!("{}", msg);
+        assert_eq!(msg.contains("name: Validation error: length"), true);
     }
-
-    #[tokio::test]
-    async fn test_create_user_handler_missing_phone_field() {
-        dotenv().ok();
-        // create database client
-        let db_client = AppDatabase::new()
-            .await
-            .expect("Unable to accquire database client");
-        let db_client = Arc::new(db_client);
-        let app = Router::new()
-            .route("/user/create", post(create_user_handler))
-            .with_state(db_client);
-
-        let req = Request::builder()
-            .uri("/user/create")
-            .method("POST")
-            .header("Content-Type", "application/json")
-            .body(Body::from(r#"{"name": "TestUser1"}"#))
-            .unwrap();
-        let res = app.oneshot(req).await.unwrap();
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    #[test]
+    fn validate_create_user_req_long_name() {
+        let name = (0..51)
+            .map(|_| get_random_num::<char>('a', 'z'))
+            .collect::<String>();
+        let req_body = CreateUserReq {
+            name,
+            phone: "1234123412".to_string(),
+            email: None,
+            profile_pic: None,
+        };
+        let res = req_body.validate();
+        let msg = res.err().unwrap().to_string();
+        println!("{}", msg);
+        assert_eq!(msg.contains("name: Validation error: length"), true);
+    }
+    #[test]
+    fn validate_create_user_req_phone_must_be_10_digits() {
+        let req_body = CreateUserReq {
+            name: "abcd".to_owned(),
+            phone: "12341".to_string(),
+            email: None,
+            profile_pic: None,
+        };
+        let res = req_body.validate();
+        let msg = res.err().unwrap().to_string();
+        println!("{}", msg);
+        assert_eq!(msg.contains("Phone must be 10 digit"), true);
+    }
+    #[test]
+    fn validate_create_user_req_phone_must_be_all_digits() {
+        let req_body = CreateUserReq {
+            name: "abcd".to_owned(),
+            phone: "1234  1234".to_string(),
+            email: None,
+            profile_pic: None,
+        };
+        let res = req_body.validate();
+        let msg = res.err().unwrap().to_string();
+        println!("{}", msg);
+        assert_eq!(msg.contains("Phone must be all digits"), true);
+    }
+    #[test]
+    fn validate_create_user_req_invalid_email_format() {
+        let req_body = CreateUserReq {
+            name: "abcd".to_owned(),
+            phone: "1234551234".to_string(),
+            email: Some("invalidemail".to_string()),
+            profile_pic: None,
+        };
+        let res = req_body.validate();
+        let msg = res.err().unwrap().to_string();
+        println!("{}", msg);
+        assert_eq!(msg.contains("invalidemail"), true);
+    }
+    #[test]
+    fn validate_create_user_req_invalid_profile_pic() {
+        let req_body = CreateUserReq {
+            name: "abcd".to_owned(),
+            phone: "1234551234".to_string(),
+            email: Some("validemail@internet.com".to_string()),
+            profile_pic: Some("invalidurl".to_string()),
+        };
+        let res = req_body.validate();
+        let msg = res.err().unwrap().to_string();
+        println!("{}", msg);
+        assert_eq!(msg.contains("invalidurl"), true);
+    }
+    #[test]
+    fn validate_create_user_req_valid() {
+        let req_body = CreateUserReq {
+            name: "abcd".to_owned(),
+            phone: "1234551234".to_string(),
+            email: Some("validemail@internet.com".to_string()),
+            profile_pic: Some("https://tinyurl.com".to_string()),
+        };
+        let res = req_body.validate();
+        assert_eq!(res.is_ok(), true);
     }
 }
 
