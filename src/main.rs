@@ -1,17 +1,7 @@
-use database::AppDatabase;
 use dotenvy::dotenv;
-use jobs::spawn_all_jobs;
 use std::{net::SocketAddr, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-mod app;
-mod constants;
-mod database;
-mod handlers;
-mod jobs;
-mod jwt;
-mod models;
-mod utils;
+use trailsbuddy_backend_rust::{app, database::AppDatabase, jobs::spawn_all_jobs};
 
 #[tokio::main]
 async fn main() {

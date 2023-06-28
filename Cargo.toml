@@ -1,5 +1,5 @@
 [package]
-name = "trailsbuddy-backend-rust"
+name = "trailsbuddy_backend_rust"
 version = "0.1.0"
 edition = "2021"
 authors = ["Sibaprasad Maiti<sibu.it13@gmail.com>"]
