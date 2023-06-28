@@ -4,17 +4,24 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use crate::{constants::*, utils::get_epoch_ts};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Money {
     #[serde(default)]
     real: u64,
     #[serde(default)]
     bonus: u64,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    withdrawable: Option<u64>,
 }
 
 impl Money {
     pub fn new(real: u64, bonus: u64) -> Self {
-        Self { real, bonus }
+        Self {
+            real,
+            bonus,
+            withdrawable: None,
+        }
     }
     pub fn real(&self) -> u64 {
         self.real
@@ -22,7 +29,9 @@ impl Money {
     pub fn bonus(&self) -> u64 {
         self.bonus
     }
-
+    pub fn withdrawable(&self) -> u64 {
+        self.withdrawable.unwrap_or_default()
+    }
     pub fn to_bson(&self) -> anyhow::Result<Bson> {
         let bson = mongodb::bson::to_bson(self)?;
         Ok(bson)
@@ -41,7 +50,29 @@ impl std::ops::Add for Money {
         Self {
             real: self.real() + other.real(),
             bonus: self.bonus() + other.bonus(),
+            withdrawable: None,
         }
+    }
+}
+
+impl std::ops::Sub for Money {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        if self.real() < rhs.real() || self.bonus() < rhs.bonus() {
+            Default::default()
+        } else {
+            Self {
+                real: self.real() - rhs.real(),
+                bonus: self.bonus() - rhs.bonus(),
+                withdrawable: None,
+            }
+        }
+    }
+}
+
+impl std::cmp::PartialEq for Money {
+    fn eq(&self, other: &Self) -> bool {
+        self.real() == other.real() && self.bonus() == other.bonus()
     }
 }
 

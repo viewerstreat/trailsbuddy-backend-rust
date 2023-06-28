@@ -2,11 +2,7 @@ use axum::{extract::State, Json};
 use chrono::{prelude::*, serde::ts_seconds};
 use futures::FutureExt;
 use lazy_static::lazy_static;
-use mongodb::{
-    bson::doc,
-    options::{FindOneAndUpdateOptions, ReturnDocument},
-    ClientSession,
-};
+use mongodb::{bson::doc, ClientSession};
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
@@ -17,11 +13,11 @@ use super::otp::get_user_by_id;
 use crate::{
     constants::*,
     database::AppDatabase,
-    jobs::finalize_contest::credit_prize::get_user_balance,
+    handlers::wallet::helper::{insert_wallet_transaction_session, update_wallet_with_session},
     jwt::JwtClaims,
     models::{
         user::{SpecialReferralCode, User},
-        wallet::{Money, Wallet, WalletTransaction},
+        wallet::WalletTransaction,
     },
     utils::{get_epoch_ts, validation::validate_future_timestamp, AppError, ValidatedBody},
 };
@@ -204,17 +200,11 @@ pub async fn credit_referral_bonus(
     user_id: u32,
     bonus: u64,
 ) -> anyhow::Result<()> {
-    let (balance_before, balance_after) = update_wallet(db, session, user_id, bonus).await?;
+    let (balance_before, balance_after) =
+        update_wallet_with_session(db, session, user_id, 0, bonus, false, false).await?;
     let transaction =
         WalletTransaction::referral_bonus_trans(user_id, bonus, balance_before, balance_after);
-    db.insert_one_with_session(
-        session,
-        DB_NAME,
-        COLL_WALLET_TRANSACTIONS,
-        &transaction,
-        None,
-    )
-    .await?;
+    insert_wallet_transaction_session(db, session, &transaction).await?;
     Ok(())
 }
 
@@ -225,60 +215,14 @@ pub async fn credit_referrer_bonus(
     user_id: u32,
 ) -> anyhow::Result<()> {
     let (balance_before, balance_after) =
-        update_wallet(db, session, referrer_id, REFERRER_BONUS).await?;
+        update_wallet_with_session(db, session, referrer_id, 0, REFERRER_BONUS, false, false)
+            .await?;
     let transaction = WalletTransaction::referrer_bonus_trans(
         referrer_id,
         balance_before,
         balance_after,
         user_id,
     );
-    db.insert_one_with_session(
-        session,
-        DB_NAME,
-        COLL_WALLET_TRANSACTIONS,
-        &transaction,
-        None,
-    )
-    .await?;
+    insert_wallet_transaction_session(db, session, &transaction).await?;
     Ok(())
-}
-
-async fn update_wallet(
-    db: &AppDatabase,
-    session: &mut ClientSession,
-    user_id: u32,
-    bonus: u64,
-) -> anyhow::Result<(Money, Money)> {
-    let balance_before = get_user_balance(db, session, user_id).await?;
-    let filter = doc! {"userId": user_id};
-    let ts = get_epoch_ts() as i64;
-    let update = doc! {
-        "$inc": { "balance.bonus": bonus as i64, "balance.real": 0},
-        "$set": {"updatedTs": ts}
-    };
-    let options = FindOneAndUpdateOptions::builder()
-        .upsert(Some(true))
-        .return_document(Some(ReturnDocument::After))
-        .build();
-    let wallet = db
-        .find_one_and_update_with_session::<Wallet>(
-            session,
-            DB_NAME,
-            COLL_WALLETS,
-            filter,
-            update,
-            Some(options),
-        )
-        .await?
-        .ok_or(anyhow::anyhow!("not able to update wallet"))?;
-    let balance_after = wallet.balance();
-    if balance_after != balance_before + Money::new(0, bonus) {
-        let err = anyhow::anyhow!(
-            "balance_before {:?} and balance_after {:?} not matching",
-            balance_before,
-            balance_after
-        );
-        return Err(err);
-    }
-    Ok((balance_before, balance_after))
 }

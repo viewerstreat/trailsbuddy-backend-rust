@@ -5,7 +5,8 @@ use mongodb::{
     error::{Result as MongoResult, UNKNOWN_TRANSACTION_COMMIT_RESULT},
     options::{
         AggregateOptions, ClientOptions, DeleteOptions, FindOneAndUpdateOptions, FindOneOptions,
-        FindOptions, InsertOneOptions, SessionOptions, TransactionOptions, UpdateOptions,
+        FindOptions, InsertOneOptions, SessionOptions, TransactionOptions, UpdateModifications,
+        UpdateOptions,
     },
     Client, ClientSession,
 };
@@ -291,7 +292,7 @@ impl AppDatabase {
         db: &str,
         coll: &str,
         filter: Document,
-        update: Document,
+        update: impl Into<UpdateModifications>,
         options: Option<FindOneAndUpdateOptions>,
     ) -> MongoResult<Option<T>>
     where

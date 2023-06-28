@@ -1,26 +1,23 @@
 use axum::{extract::State, Json};
 use futures::FutureExt;
-use mongodb::{
-    bson::{doc, oid::ObjectId},
-    options::{FindOneAndUpdateOptions, ReturnDocument},
-    ClientSession,
-};
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use validator::Validate;
 
-use super::get_bal::get_user_balance;
 use crate::{
-    constants::*,
+    database::AppDatabase,
+    handlers::wallet::helper::{get_user_balance, get_wallet_transaction},
     jwt::JwtClaims,
-    models::wallet::{
-        Money, Wallet, WalletTransaction, WalletTransactionStatus, WalltetTransactionType,
-    },
-    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
+    models::wallet::{Money, WalletTransaction, WalletTransactionStatus, WalltetTransactionType},
+    utils::{parse_object_id, AppError, ValidatedBody},
 };
 
-use crate::database::AppDatabase;
+use super::helper::{
+    insert_wallet_transaction, update_wallet_transaction_session, update_wallet_with_session,
+    updated_failed_transaction,
+};
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct AddBalInitReq {
@@ -45,9 +42,7 @@ pub async fn add_bal_init_handler(
     let amount = Money::new(body.amount, 0);
     let balance_before = get_user_balance(&db, claims.id).await?.unwrap_or_default();
     let transaction = WalletTransaction::add_bal_init_trans(claims.id, amount, balance_before);
-    let transaction_id = db
-        .insert_one::<WalletTransaction>(DB_NAME, COLL_WALLET_TRANSACTIONS, &transaction, None)
-        .await?;
+    let transaction_id = insert_wallet_transaction(&db, &transaction).await?;
     let res = AddBalInitRes {
         success: true,
         transaction_id,
@@ -91,14 +86,15 @@ async fn handle_success_transaction(
     let user_id = claims.id;
     db.execute_transaction(None, None, |db, session| {
         let tracking_id = body.tracking_id.clone();
-        let amount = body.amount as i64;
+        let amount = body.amount;
         async move {
-            let wallet = update_wallet(db, session, user_id, amount).await?;
-            update_wallet_transaction(
+            let (_, balance_after) =
+                update_wallet_with_session(db, session, user_id, amount, 0, false, false).await?;
+            update_wallet_transaction_session(
                 db,
                 session,
                 &transaction_id,
-                &wallet.balance(),
+                balance_after,
                 &tracking_id,
             )
             .await?;
@@ -109,65 +105,6 @@ async fn handle_success_transaction(
     .await?;
     let res = json!({"success": true, "message": "Updated successfully"});
     Ok(Json(res))
-}
-
-async fn update_wallet(
-    db: &AppDatabase,
-    session: &mut ClientSession,
-    user_id: u32,
-    amount: i64,
-) -> anyhow::Result<Wallet> {
-    let ts = get_epoch_ts() as i64;
-    let filter = doc! {"userId": user_id};
-    let update = doc! {
-        "$set": {"updatedTs": ts},
-        "$inc": {"balance.real": amount, "balance.bonus": 0}
-    };
-    let options = FindOneAndUpdateOptions::builder()
-        .upsert(Some(true))
-        .return_document(Some(ReturnDocument::After))
-        .build();
-    let wallet = db
-        .find_one_and_update_with_session::<Wallet>(
-            session,
-            DB_NAME,
-            COLL_WALLETS,
-            filter,
-            update,
-            Some(options),
-        )
-        .await?
-        .ok_or(anyhow::anyhow!("not able to update wallet"))?;
-    Ok(wallet)
-}
-
-pub async fn update_wallet_transaction(
-    db: &AppDatabase,
-    session: &mut ClientSession,
-    transaction_id: &ObjectId,
-    balance_after: &Money,
-    tracking_id: &Option<String>,
-) -> anyhow::Result<()> {
-    let ts = get_epoch_ts() as i64;
-    let filter = doc! {"_id": transaction_id};
-    let update = doc! {
-        "$set": {
-            "balanceAfter": balance_after.to_bson()?,
-            "status": WalletTransactionStatus::Completed.to_bson()?,
-            "trackingId": tracking_id,
-            "updatedTs": ts
-        }
-    };
-    db.update_one_with_session(
-        session,
-        DB_NAME,
-        COLL_WALLET_TRANSACTIONS,
-        filter,
-        update,
-        None,
-    )
-    .await?;
-    Ok(())
 }
 
 async fn handle_failed_transaction(
@@ -200,8 +137,9 @@ async fn validate_transaction(
         "status": WalletTransactionStatus::Pending.to_bson()?,
         "transactionType": WalltetTransactionType::AddBalance.to_bson()?
     };
+    let filter = Some(filter);
     let (transaction_result, balance_result) = tokio::join!(
-        db.find_one::<WalletTransaction>(DB_NAME, COLL_WALLET_TRANSACTIONS, Some(filter), None),
+        get_wallet_transaction(db, filter),
         get_user_balance(db, claims.id)
     );
     let transaction =
@@ -224,27 +162,5 @@ async fn validate_transaction(
         return Err(err);
     }
 
-    Ok(())
-}
-
-pub async fn updated_failed_transaction(
-    db: &Arc<AppDatabase>,
-    user_id: u32,
-    transaction_id: &ObjectId,
-    error_reason: &Option<String>,
-    tracking_id: &Option<String>,
-) -> Result<(), AppError> {
-    let filter = doc! {"_id": transaction_id};
-    let update = doc! {
-        "$set": {
-            "status": WalletTransactionStatus::Error.to_bson()?,
-            "errorReason": error_reason,
-            "trackingId": tracking_id,
-            "updatedBy": user_id,
-            "updatedTs": get_epoch_ts() as i64
-        }
-    };
-    db.update_one(DB_NAME, COLL_WALLET_TRANSACTIONS, filter, update, None)
-        .await?;
     Ok(())
 }

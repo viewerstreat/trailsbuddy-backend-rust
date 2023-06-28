@@ -8,18 +8,22 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::get_bal::get_user_balance;
 use crate::{
     constants::*,
     database::AppDatabase,
-    handlers::play_tracker::get::{insert_new_play_tracker, validate_contest},
+    handlers::{
+        play_tracker::get::{insert_new_play_tracker, validate_contest},
+        wallet::helper::{get_user_balance, update_wallet_with_session},
+    },
     jwt::JwtClaims,
     models::{
         play_tracker::{PlayTracker, PlayTrackerStatus},
-        wallet::{Money, Wallet, WalletTransaction},
+        wallet::{Money, WalletTransaction},
     },
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
+
+use super::helper::insert_wallet_transaction_session;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,8 +83,16 @@ pub async fn pay_contest_handler(
         let user_id = claims.id;
         let contest_id = body.contest_id.clone();
         async move {
-            let balance_after =
-                update_wallet(db, session, user_id, real_money_amount, bonus_money_amount).await?;
+            let (_, balance_after) = update_wallet_with_session(
+                db,
+                session,
+                user_id,
+                real_money_amount,
+                bonus_money_amount,
+                true,
+                false,
+            )
+            .await?;
             let transaction_id = update_wallet_transaction(
                 db,
                 session,
@@ -107,42 +119,6 @@ pub async fn pay_contest_handler(
     Ok(Json(res))
 }
 
-async fn update_wallet(
-    db: &AppDatabase,
-    session: &mut ClientSession,
-    user_id: u32,
-    real: u64,
-    bonus: u64,
-) -> anyhow::Result<Money> {
-    let ts = get_epoch_ts() as i64;
-    let bonus = bonus as i64;
-    let real = real as i64;
-    let filter = doc! {
-        "userId": user_id,
-        "balance.real": {"$gte": real},
-        "balance.bonus": {"$gte": bonus}
-    };
-    let update = doc! {
-        "$set": {"updatedTs": ts},
-        "$inc": {"balance.real": real * -1, "balance.bonus": bonus * -1}
-    };
-    let options = FindOneAndUpdateOptions::builder()
-        .return_document(Some(ReturnDocument::After))
-        .build();
-    let wallet = db
-        .find_one_and_update_with_session::<Wallet>(
-            session,
-            DB_NAME,
-            COLL_WALLETS,
-            filter,
-            update,
-            Some(options),
-        )
-        .await?
-        .ok_or(anyhow::anyhow!("not able to update wallet"))?;
-    Ok(wallet.balance())
-}
-
 async fn update_wallet_transaction(
     db: &AppDatabase,
     session: &mut ClientSession,
@@ -161,15 +137,7 @@ async fn update_wallet_transaction(
         balance_before,
         balance_after,
     );
-    let transaction_id = db
-        .insert_one_with_session::<WalletTransaction>(
-            session,
-            DB_NAME,
-            COLL_WALLET_TRANSACTIONS,
-            &transaction,
-            None,
-        )
-        .await?;
+    let transaction_id = insert_wallet_transaction_session(db, session, &transaction).await?;
     Ok(transaction_id)
 }
 
