@@ -33,7 +33,7 @@ pub const NOTI_JOB_FETCH_LIMIT: i64 = 10;
 pub const REFERRER_BONUS: u64 = 100;
 pub const REFERRAL_BONUS: u64 = 100;
 
-pub const DB_NAME: &str = "treatviewers2";
+pub const DB_NAME: &str = "treatviewerstest";
 
 pub const COLL_SEQUENCES: &str = "sequences";
 pub const COLL_CLIPS: &str = "clips";
