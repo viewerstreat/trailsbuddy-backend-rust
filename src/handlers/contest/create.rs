@@ -6,16 +6,17 @@ use std::sync::Arc;
 use crate::{
     constants::*,
     database::AppDatabase,
-    jwt::JwtClaims,
+    jwt::JwtClaimsAdmin,
     models::contest::{Contest, ContestCategory, ContestProps, PrizeSelection},
     utils::{parse_object_id, AppError, ValidatedBody},
 };
 
 pub async fn create_contest_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ContestProps>,
 ) -> Result<Json<JsonValue>, AppError> {
+    let claims = claims.data;
     validate_body(&db, &body).await?;
     let mut contest = Contest::new(&body, claims.id);
     let inserted_id = db

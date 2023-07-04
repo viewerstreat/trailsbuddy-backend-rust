@@ -14,7 +14,7 @@ use crate::{
     constants::*,
     database::AppDatabase,
     handlers::wallet::helper::{insert_wallet_transaction_session, update_wallet_with_session},
-    jwt::JwtClaims,
+    jwt::{JwtClaims, JwtClaimsAdmin},
     models::{
         user::{SpecialReferralCode, User},
         wallet::WalletTransaction,
@@ -94,10 +94,11 @@ pub async fn use_referral_code_handler(
 
 /// Create special referral codes
 pub async fn create_special_code_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<SpecialCodeReqBody>,
 ) -> Result<Json<JsonValue>, AppError> {
+    let claims = claims.data;
     let curr_ts = get_epoch_ts() as i64;
     if body.valid_till.timestamp() <= curr_ts {
         let err = "validTill must be future date";

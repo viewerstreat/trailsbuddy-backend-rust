@@ -1,3 +1,4 @@
+pub mod admin_login;
 pub mod check_otp;
 pub mod create;
 pub mod get_leaderboard;

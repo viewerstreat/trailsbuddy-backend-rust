@@ -8,7 +8,7 @@ use validator::{Validate, ValidationError};
 use crate::{
     constants::*,
     database::AppDatabase,
-    jwt::JwtClaims,
+    jwt::JwtClaimsAdmin,
     models::movie::{Movie, MovieProps, MovieRespData},
     utils::{get_epoch_ts, validation::validate_future_timestamp, AppError, ValidatedBody},
 };
@@ -54,10 +54,11 @@ pub struct Response {
 }
 
 pub async fn create_movie_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateMovieReqBody>,
 ) -> Result<Json<Response>, AppError> {
+    let claims = claims.data;
     check_duplicate_name(&db, &body.name).await?;
     let ts = get_epoch_ts();
     let movie_props = MovieProps {

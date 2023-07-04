@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::{
     constants::*,
     database::AppDatabase,
-    jwt::JwtClaims,
+    jwt::JwtClaimsAdmin,
     models::contest::{Contest, ContestStatus, ContestWithQuestion},
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
@@ -19,10 +19,11 @@ pub struct ReqBody {
 }
 
 pub async fn activate_contest_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     Json(body): Json<ReqBody>,
 ) -> Result<Json<JsonValue>, AppError> {
+    let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
     let contest = db
@@ -66,10 +67,11 @@ pub async fn activate_contest_handler(
 }
 
 pub async fn inactivate_contest_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     Json(body): Json<ReqBody>,
 ) -> Result<Json<JsonValue>, AppError> {
+    let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
     let contest = db

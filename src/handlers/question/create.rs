@@ -8,7 +8,7 @@ use validator::Validate;
 use crate::{
     constants::*,
     database::AppDatabase,
-    jwt::JwtClaims,
+    jwt::JwtClaimsAdmin,
     models::contest::{Answer, ContestStatus, ContestWithQuestion, Question, QuestionReqBody},
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
@@ -24,10 +24,11 @@ pub struct ReqBody {
 }
 
 pub async fn create_question_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ReqBody>,
 ) -> Result<Json<JsonValue>, AppError> {
+    let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     validate_request(&db, &body, &contest_id, true).await?;
     let question: Question = body.question.into();

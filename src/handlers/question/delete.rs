@@ -8,7 +8,7 @@ use validator::Validate;
 use super::update::{update_options_question, update_question};
 use crate::{
     database::AppDatabase,
-    jwt::JwtClaims,
+    jwt::JwtClaimsAdmin,
     models::contest::ContestStatus,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
@@ -23,10 +23,11 @@ pub struct ReqBody {
 }
 
 pub async fn delete_question_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ReqBody>,
 ) -> Result<Json<JsonValue>, AppError> {
+    let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let ts = get_epoch_ts() as i64;
     let filter = doc! {

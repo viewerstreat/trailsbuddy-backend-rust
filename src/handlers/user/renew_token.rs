@@ -6,12 +6,11 @@ use std::sync::Arc;
 use super::login::{update_user_login, verify_fb_token, verify_id_token};
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JWT_KEYS,
     models::user::{LoginScheme, User},
     utils::{get_epoch_ts, AppError},
 };
-
-use crate::database::AppDatabase;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

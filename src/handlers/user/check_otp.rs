@@ -52,21 +52,7 @@ pub async fn check_otp_handler(
         .find_one::<User>(DB_NAME, COLL_USERS, filter, None)
         .await?
         .ok_or(not_found)?;
-    let ts = get_epoch_ts() as i64;
-    let filter = doc! {"userId": user.id, "otp": params.otp.as_str(), "validTill": {"$gte": ts}, "isUsed": false};
-    let update = doc! {"$set": {"isUsed": true, "updateTs": ts}};
-    let result = db
-        .update_one(DB_NAME, COLL_OTP, filter, update, None)
-        .await?;
-    if result.matched_count == 0 {
-        let err = format!("Not valid otp");
-        return Err(AppError::NotFound(err));
-    }
-
-    if result.modified_count == 0 {
-        let err = anyhow::anyhow!("Not able to update otp in DB");
-        return Err(AppError::AnyError(err));
-    }
+    check_and_update_otp(user.id, params.otp.as_str(), &db).await?;
     update_user_login(&db, user.id, LoginScheme::OTP_BASED).await?;
     let token = JWT_KEYS.generate_token(user.id, Some(user.name.to_owned()))?;
     let refresh_token = JWT_KEYS.generate_refresh_token(user.id, None)?;
@@ -79,4 +65,26 @@ pub async fn check_otp_handler(
     };
 
     Ok((StatusCode::OK, Json(response)))
+}
+
+pub async fn check_and_update_otp(
+    user_id: u32,
+    otp: &str,
+    db: &Arc<AppDatabase>,
+) -> Result<(), AppError> {
+    let ts = get_epoch_ts() as i64;
+    let filter = doc! {"userId": user_id, "otp": &otp, "validTill": {"$gte": ts}, "isUsed": false};
+    let update = doc! {"$set": {"isUsed": true, "updateTs": ts}};
+    let result = db
+        .update_one(DB_NAME, COLL_OTP, filter, update, None)
+        .await?;
+    if result.matched_count == 0 {
+        let err = format!("Not valid otp");
+        return Err(AppError::NotFound(err));
+    }
+    if result.modified_count == 0 {
+        let err = anyhow::anyhow!("Not able to update otp in DB");
+        return Err(AppError::AnyError(err));
+    }
+    Ok(())
 }
