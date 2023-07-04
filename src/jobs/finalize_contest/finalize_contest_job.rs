@@ -15,29 +15,27 @@ pub async fn finalize_contest_job(db: Arc<AppDatabase>) {
     let mut interval = interval(Duration::from_secs(FINALIZE_CONTEST_JOB_INTERVAL));
     loop {
         interval.tick().await;
-        check_and_finalize_contest(&db).await;
+        let result = check_and_finalize_contest(&db).await;
+        if result.is_err() {
+            tracing::debug!("Error in finalize_contest_job => {:?}", result.err());
+        }
     }
 }
 
-pub async fn check_and_finalize_contest(db: &Arc<AppDatabase>) {
+pub async fn check_and_finalize_contest(db: &Arc<AppDatabase>) -> anyhow::Result<()> {
     tracing::debug!("check_and_finalize_contest called");
     let ts = get_epoch_ts() as i64;
-    let Ok(status) = ContestStatus::ACTIVE.to_bson() else {
-        tracing::debug!("not able to convert ContestStatus to Bson");
-        return;
-    };
+    let status = ContestStatus::ACTIVE.to_bson()?;
     let filter = doc! {"status": status, "endTime": {"$lte": ts}};
     let options = FindOptions::builder()
         .sort(Some(doc! {"updatedTs": 1}))
         .build();
     let contests = db
         .find::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), Some(options))
-        .await;
-    let contests = contests.unwrap_or_else(|e| {
-        tracing::debug!("{:?}", e);
-        vec![]
-    });
+        .await
+        .unwrap_or_default();
     for contest in contests {
         finish_contest(db, &contest).await;
     }
+    Ok(())
 }

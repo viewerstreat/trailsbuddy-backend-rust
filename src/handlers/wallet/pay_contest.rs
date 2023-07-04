@@ -104,7 +104,16 @@ pub async fn pay_contest_handler(
                 balance_after,
             )
             .await?;
-            update_play_tracker(db, session, user_id, &contest_id, &transaction_id).await?;
+            let paid_amount = Money::new(real_money_amount, bonus_money_amount);
+            update_play_tracker(
+                db,
+                session,
+                user_id,
+                &contest_id,
+                &transaction_id,
+                paid_amount,
+            )
+            .await?;
             Ok(())
         }
         .boxed()
@@ -147,6 +156,7 @@ async fn update_play_tracker(
     user_id: u32,
     contest_id: &str,
     transaction_id: &str,
+    paid_amount: Money,
 ) -> anyhow::Result<PlayTracker> {
     let ts = get_epoch_ts() as i64;
     let filter = doc! {
@@ -157,6 +167,7 @@ async fn update_play_tracker(
         "$set": {
             "walletTransactionId": transaction_id,
             "status": PlayTrackerStatus::PAID.to_bson()?,
+            "paidAmount": paid_amount.to_bson()?,
             "paidTs": ts,
             "updatedTs": ts,
             "updatedBy": user_id

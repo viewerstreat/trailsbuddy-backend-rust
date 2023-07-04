@@ -77,6 +77,8 @@ pub struct ContestProps {
     #[serde(with = "ts_seconds")]
     #[validate(custom = "validate_future_timestamp")]
     pub end_time: DateTime<Utc>,
+    #[serde(default)]
+    pub min_required_players: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
