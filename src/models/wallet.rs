@@ -260,7 +260,7 @@ impl WalletTransaction {
         transaction
     }
 
-    pub fn refundContestEntryFeeTrans(
+    pub fn refund_contest_entry_fee_trans(
         user_id: u32,
         contest_id: &str,
         amount: Money,
