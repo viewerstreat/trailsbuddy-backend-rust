@@ -1,7 +1,10 @@
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-use super::contest::{AnswerProps, Question, QuestionProps};
+use super::{
+    contest::{AnswerProps, Question, QuestionProps},
+    wallet::Money,
+};
 use crate::utils::get_epoch_ts;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -79,6 +82,8 @@ pub struct PlayTracker {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wallet_transaction_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub paid_amount: Option<Money>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub answers: Option<Vec<ChosenAnswer>>,
@@ -109,6 +114,7 @@ impl PlayTracker {
             resume_ts: None,
             paid_ts: None,
             wallet_transaction_id: None,
+            paid_amount: None,
             score: None,
             answers: None,
             time_taken: None,

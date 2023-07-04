@@ -1,3 +1,4 @@
+pub mod cancel_contest;
 pub mod credit_prize;
 pub mod finalize_contest_job;
 pub mod finish_contest;

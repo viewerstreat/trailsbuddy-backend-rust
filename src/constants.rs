@@ -54,3 +54,4 @@ pub const COLL_ADMIN_USERS: &str = "adminUsers";
 pub const USER_ID_SEQ: &str = "USER_ID_SEQ";
 
 pub const EVENT_CREDIT_PRIZE: &str = "EVENT_CREDIT_PRIZE";
+pub const EVENT_CONTEST_CANCEL_MIN_PLAYER: &str = "EVENT_CONTEST_CANCEL_MIN_PLAYER";
