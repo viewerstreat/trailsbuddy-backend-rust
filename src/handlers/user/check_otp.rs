@@ -26,13 +26,13 @@ pub struct CheckOtpReq {
     otp: String,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all(serialize = "camelCase"))]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Response {
-    success: bool,
-    data: User,
-    token: String,
-    refresh_token: String,
+    pub success: bool,
+    pub data: User,
+    pub token: String,
+    pub refresh_token: String,
 }
 
 /// Check if the provided otp is valid for the given phone

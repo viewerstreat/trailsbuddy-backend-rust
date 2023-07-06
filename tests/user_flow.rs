@@ -1,16 +1,10 @@
-use dotenvy::dotenv;
 use mongodb::bson::doc;
-use std::sync::Arc;
 
-use axum::{
-    body::Body,
-    http::{Request, StatusCode},
-    routing::{get, post},
-    Router,
-};
+use axum::{http::StatusCode, routing::post};
 use serde::Deserialize;
 use tower::ServiceExt; // for `oneshot` and `ready`
 
+use crate::helper::{get_app, req_body};
 use trailsbuddy_backend_rust::{
     constants::*,
     database::AppDatabase,
@@ -23,33 +17,12 @@ use trailsbuddy_backend_rust::{
     utils::get_epoch_ts,
 };
 
+mod helper;
+
 #[derive(Debug, Deserialize)]
 struct Response {
     success: bool,
     message: String,
-}
-
-async fn get_app() -> Router {
-    // import .env file
-    dotenv().ok();
-    // create database client
-    let db_client = AppDatabase::new()
-        .await
-        .expect("Unable to accquire database client");
-    let db_client = Arc::new(db_client);
-    let app = Router::new()
-        .route("/create", post(create_user_handler))
-        .with_state(db_client);
-    app
-}
-
-fn req_body(body: &str) -> Request<Body> {
-    Request::builder()
-        .uri("/create")
-        .method("POST")
-        .header("Content-Type", "application/json")
-        .body(Body::from(body.to_owned()))
-        .unwrap()
 }
 
 #[tokio::test]
@@ -59,12 +32,14 @@ async fn test_user_signup_validations() {
     let phone2 = format!("{}", ts + 1);
     let phone3 = format!("{}", ts + 2);
     let phone4 = format!("{}", ts + 3);
-    let app = get_app().await;
+    let path = "/create";
+    let method_router = post(create_user_handler);
+    let app = get_app(path, method_router).await;
     {
         // empty object request body
         let app = app.clone();
         let body = r#"{}"#;
-        let res = app.oneshot(req_body(body)).await.unwrap();
+        let res = app.oneshot(req_body(path, body)).await.unwrap();
         assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
     {
@@ -72,14 +47,14 @@ async fn test_user_signup_validations() {
         let app = app.clone();
         let body =
             r#"{"name": "", "email": "validemail@internet.com", "profilePic": "invalidurl"}"#;
-        let res = app.oneshot(req_body(body)).await.unwrap();
+        let res = app.oneshot(req_body(path, body)).await.unwrap();
         assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
     {
         // invalid `phone` field
         let app = app.clone();
         let body = r#"{"name": "abcd", "phone": "1234"}"#;
-        let res = app.oneshot(req_body(body)).await.unwrap();
+        let res = app.oneshot(req_body(path, body)).await.unwrap();
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
         let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
         let response: Response = serde_json::from_slice(&body).unwrap();
@@ -91,7 +66,7 @@ async fn test_user_signup_validations() {
         // `phone` has 10 digits but contain invalid char
         let app = app.clone();
         let body = r#"{"name": "abcd", "phone": "1234O12341"}"#;
-        let res = app.oneshot(req_body(body)).await.unwrap();
+        let res = app.oneshot(req_body(path, body)).await.unwrap();
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
         let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
         let response: Response = serde_json::from_slice(&body).unwrap();
@@ -103,10 +78,10 @@ async fn test_user_signup_validations() {
         // duplicate phone
         let body = format!("{{\"name\": \"abcd\", \"phone\": \"{}\"}}", phone1);
         let app1 = app.clone();
-        let res = app1.oneshot(req_body(&body)).await.unwrap();
+        let res = app1.oneshot(req_body(path, &body)).await.unwrap();
         assert_eq!(res.status(), StatusCode::CREATED);
         let app2 = app.clone();
-        let res = app2.oneshot(req_body(&body)).await.unwrap();
+        let res = app2.oneshot(req_body(path, &body)).await.unwrap();
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
         let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
         let response: Response = serde_json::from_slice(&body).unwrap();
@@ -131,10 +106,10 @@ async fn test_user_signup_validations() {
             phone3, &email
         );
         let app1 = app.clone();
-        let res = app1.oneshot(req_body(&body1)).await.unwrap();
+        let res = app1.oneshot(req_body(path, &body1)).await.unwrap();
         assert_eq!(res.status(), StatusCode::CREATED);
         let app2 = app.clone();
-        let res = app2.oneshot(req_body(&body2)).await.unwrap();
+        let res = app2.oneshot(req_body(path, &body2)).await.unwrap();
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
         let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
         let response: Response = serde_json::from_slice(&body).unwrap();
@@ -151,7 +126,7 @@ async fn test_user_signup_validations() {
         // successful creation data validation
         let body = format!("{{\"name\": \"abcd\", \"phone\": \"{}\"}}", phone4.clone());
         let app = app.clone();
-        let res = app.oneshot(req_body(&body)).await.unwrap();
+        let res = app.oneshot(req_body(path, &body)).await.unwrap();
         assert_eq!(res.status(), StatusCode::CREATED);
         check_user_data_in_database(phone4).await;
     }
