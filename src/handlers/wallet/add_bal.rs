@@ -25,7 +25,7 @@ pub struct AddBalInitReq {
     amount: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddBalInitRes {
     success: bool,

@@ -1,5 +1,5 @@
 use axum::{
-    body::{boxed, Body},
+    body::boxed,
     extract::DefaultBodyLimit,
     http::{header, HeaderValue},
     routing::{get, post, IntoMakeService},

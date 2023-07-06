@@ -32,7 +32,7 @@ pub struct ReqBody {
     bonus_money_amount: Option<u32>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Response {
     success: bool,
     data: PlayTracker,
