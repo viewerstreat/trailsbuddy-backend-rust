@@ -1,13 +1,13 @@
 use axum::{extract::State, Json};
 use mongodb::bson::doc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{database::AppDatabase, jwt::JwtClaims, models::wallet::Money, utils::AppError};
 
 use super::helper::get_user_balance;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Response {
     success: bool,
     balance: Money,

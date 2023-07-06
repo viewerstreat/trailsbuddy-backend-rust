@@ -26,8 +26,8 @@ pub struct CheckOtpReq {
     otp: String,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all(serialize = "camelCase"))]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Response {
     success: bool,
     data: User,

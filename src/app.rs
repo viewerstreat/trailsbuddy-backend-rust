@@ -1,5 +1,5 @@
 use axum::{
-    body::{boxed, Body},
+    body::boxed,
     extract::DefaultBodyLimit,
     http::{header, HeaderValue},
     routing::{get, post, IntoMakeService},
@@ -178,7 +178,7 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
         .nest("/admin", admin_route);
 
     // create the app instance with all routes and middleware
-    let app: Router<(), Body> = Router::new()
+    let app = Router::new()
         .route("/", get(default_route_handler))
         .nest("/api/v1", api_route)
         .layer(middleware)
