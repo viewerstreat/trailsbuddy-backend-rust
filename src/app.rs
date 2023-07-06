@@ -73,28 +73,7 @@ use crate::{
 use crate::{database::AppDatabase, handlers::user::admin_login::admin_login_handler};
 
 /// Initializes the app with all routes and middlewares
-pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
-    tracing::debug!("Initializing the app");
-    // create a response header layer for middleware
-    let server_header_value = HeaderValue::from_static("trailsbuddy-backend-rust");
-    let set_response_header_layer =
-        SetResponseHeaderLayer::if_not_present(header::SERVER, server_header_value);
-    // create the trace layer for middleware
-    let trace_layer = TraceLayer::new_for_http();
-    // create the cors layer for middleware
-    let cors_layer = CorsLayer::permissive();
-    // create the timeout layer for middleware
-    let timeout_layer = TimeoutLayer::new(Duration::from_secs(REQUEST_TIMEOUT_SECS));
-    // combine all middlewares with ServiceBuilder
-    let middleware = ServiceBuilder::new()
-        .layer(timeout_layer)
-        .layer(cors_layer)
-        .layer(set_response_header_layer)
-        .map_response_body(boxed)
-        .layer(trace_layer)
-        .compression()
-        .into_inner();
-
+pub fn build_app_routes(db_client: Arc<AppDatabase>) -> Router {
     let root_route = Router::new()
         .route("/ping", get(ping_handler))
         .route("/tempApiGetToken", get(temp_api_get_token))
@@ -177,6 +156,26 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
         .nest("/upload", upload_route)
         .nest("/admin", admin_route);
 
+    // create a response header layer for middleware
+    let server_header_value = HeaderValue::from_static("trailsbuddy-backend-rust");
+    let set_response_header_layer =
+        SetResponseHeaderLayer::if_not_present(header::SERVER, server_header_value);
+    // create the trace layer for middleware
+    let trace_layer = TraceLayer::new_for_http();
+    // create the cors layer for middleware
+    let cors_layer = CorsLayer::permissive();
+    // create the timeout layer for middleware
+    let timeout_layer = TimeoutLayer::new(Duration::from_secs(REQUEST_TIMEOUT_SECS));
+    // combine all middlewares with ServiceBuilder
+    let middleware = ServiceBuilder::new()
+        .layer(timeout_layer)
+        .layer(cors_layer)
+        .layer(set_response_header_layer)
+        .map_response_body(boxed)
+        .layer(trace_layer)
+        .compression()
+        .into_inner();
+
     // create the app instance with all routes and middleware
     let app = Router::new()
         .route("/", get(default_route_handler))
@@ -184,6 +183,13 @@ pub async fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
         .layer(middleware)
         .fallback(global_404_handler)
         .with_state(db_client);
+    app
+}
+
+/// Initializes the app instance
+pub fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
+    tracing::debug!("Initializing the app");
+    let app = build_app_routes(db_client);
     // return the IntoMakeService instance
     app.into_make_service()
 }

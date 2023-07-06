@@ -1,7 +1,7 @@
 use dotenvy::dotenv;
 use std::{net::SocketAddr, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use trailsbuddy_backend_rust::{app, database::AppDatabase, jobs::spawn_all_jobs};
+use trailsbuddy_backend_rust::{app::build, database::AppDatabase, jobs::spawn_all_jobs};
 
 #[tokio::main]
 async fn main() {
@@ -36,7 +36,7 @@ async fn start_server(db_client: Arc<AppDatabase>) {
     // build the socket address
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     // create the app instance
-    let app = app::build(db_client).await;
+    let app = build(db_client);
     tracing::debug!("Starting the app in: {addr}");
     // start serving the app in the socket address
     axum::Server::bind(&addr).serve(app).await.unwrap();
