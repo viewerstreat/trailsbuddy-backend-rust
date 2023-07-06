@@ -1,167 +1,137 @@
-use mongodb::bson::doc;
+use std::sync::Arc;
 
-use axum::{http::StatusCode, routing::post};
-use serde::Deserialize;
+use axum::{http::StatusCode, Router};
 use tower::ServiceExt; // for `oneshot` and `ready`
 
-use crate::helper::{get_app, req_body};
+use crate::helper::{
+    build_post_request, create_user, create_user_and_get_token, create_user_with_body,
+    get_database, GenericResponse,
+};
 use trailsbuddy_backend_rust::{
-    constants::*,
+    app::build_app_routes,
     database::AppDatabase,
-    handlers::user::create::create_user_handler,
-    models::{
-        otp::Otp,
-        user::{LoginScheme, User},
-        wallet::Money,
-    },
+    models::{user::LoginScheme, wallet::Money},
     utils::get_epoch_ts,
 };
 
 mod helper;
 
-#[derive(Debug, Deserialize)]
-struct Response {
-    success: bool,
-    message: String,
+const CREATE_USER_PATH: &str = "/api/v1/user/create";
+
+async fn test_empty_body(app: Router) {
+    let body = r#"{}"#;
+    let request = build_post_request(CREATE_USER_PATH, body);
+    let res = app.oneshot(request).await.unwrap();
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+async fn test_missing_phone(app: Router) {
+    let body = r#"{"name": "", "email": "validemail@internet.com", "profilePic": "invalidurl"}"#;
+    let request = build_post_request(CREATE_USER_PATH, body);
+    let res = app.oneshot(request).await.unwrap();
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+async fn test_invalid_phone(app: Router) {
+    let body = r#"{"name": "abcd", "phone": "1234"}"#;
+    let request = build_post_request(CREATE_USER_PATH, body);
+    let res = app.oneshot(request).await.unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
+    let response: GenericResponse = serde_json::from_slice(&body).unwrap();
+    println!("{:?}", response);
+    assert_eq!(response.success, false);
+    assert_eq!(response.message.contains("Phone must be 10 digit"), true);
+}
+
+async fn test_invalid_char_in_phone(app: Router) {
+    let body = r#"{"name": "abcd", "phone": "1234O12341"}"#;
+    let request = build_post_request(CREATE_USER_PATH, body);
+    let res = app.oneshot(request).await.unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
+    let response: GenericResponse = serde_json::from_slice(&body).unwrap();
+    println!("{:?}", response);
+    assert_eq!(response.success, false);
+    assert_eq!(response.message.contains("Phone must be all digits"), true);
+}
+
+async fn test_duplicate_phone(app: Router, phone: &str) {
+    let body = format!(
+        "{{\"name\": \"test_duplicate_phone\", \"phone\": \"{}\"}}",
+        phone
+    );
+    create_user(app.clone(), phone, "test_duplicate_phone").await;
+    let request = build_post_request(CREATE_USER_PATH, &body);
+    let res = app.oneshot(request).await.unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
+    let response: GenericResponse = serde_json::from_slice(&body).unwrap();
+    println!("{:?}", response);
+    assert_eq!(response.success, false);
+    let msg = "User already exists with same phone";
+    assert_eq!(response.message.contains(msg), true);
+}
+
+async fn test_duplicate_email(app: Router, phone1: &str, phone2: &str) {
+    let email = format!("{}@email.com", get_epoch_ts());
+    let body1 = format!(
+        "{{\"name\": \"test_duplicate_email\", \"phone\": \"{}\", \"email\":\"{}\"}}",
+        phone1, &email
+    );
+    let body2 = format!(
+        "{{\"name\": \"test_duplicate_email\", \"phone\": \"{}\", \"email\":\"{}\"}}",
+        phone2, &email
+    );
+    create_user_with_body(app.clone(), &body1).await;
+    let request = build_post_request(CREATE_USER_PATH, &body2);
+    let res = app.oneshot(request).await.unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
+    let response: GenericResponse = serde_json::from_slice(&body).unwrap();
+    println!("{:?}", response);
+    assert_eq!(response.success, false);
+    let msg = "User already exists with same email";
+    assert_eq!(response.message.contains(msg), true);
+}
+
+async fn test_successful_signup(app: Router, db: Arc<AppDatabase>, phone: &str) {
+    let name = "test_successful_signup";
+    let res = create_user_and_get_token(app, db, phone, name, true).await;
+    assert_eq!(res.success, true);
+    assert_eq!(res.data.id.ge(&0), true);
+    assert_eq!(res.data.name.as_str(), name);
+    assert_eq!(res.data.phone.as_ref().unwrap(), phone);
+    assert_eq!(res.data.email.is_none(), true);
+    assert_eq!(res.data.profile_pic, None);
+    assert_eq!(res.data.login_scheme, LoginScheme::OTP_BASED);
+    assert_eq!(res.data.is_active, true);
+    assert_eq!(res.data.has_used_referral_code, Some(false));
+    assert_eq!(res.data.referral_code.is_some(), true);
+    assert_eq!(res.data.referred_by, None);
+    assert_eq!(res.data.total_played, Some(0));
+    assert_eq!(res.data.contest_won, Some(0));
+    assert_eq!(res.data.total_earning, Some(Money::default()));
+    assert_eq!(res.data.fcm_tokens, None);
 }
 
 #[tokio::test]
-async fn test_user_signup_validations() {
+async fn test_user_signup() {
     let ts = get_epoch_ts();
     let phone1 = format!("{}", ts);
     let phone2 = format!("{}", ts + 1);
     let phone3 = format!("{}", ts + 2);
     let phone4 = format!("{}", ts + 3);
-    let path = "/create";
-    let method_router = post(create_user_handler);
-    let app = get_app(path, method_router).await;
-    {
-        // empty object request body
-        let app = app.clone();
-        let body = r#"{}"#;
-        let res = app.oneshot(req_body(path, body)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    }
-    {
-        // missing `phone` field
-        let app = app.clone();
-        let body =
-            r#"{"name": "", "email": "validemail@internet.com", "profilePic": "invalidurl"}"#;
-        let res = app.oneshot(req_body(path, body)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    }
-    {
-        // invalid `phone` field
-        let app = app.clone();
-        let body = r#"{"name": "abcd", "phone": "1234"}"#;
-        let res = app.oneshot(req_body(path, body)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-        let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
-        let response: Response = serde_json::from_slice(&body).unwrap();
-        println!("{:?}", response);
-        assert_eq!(response.success, false);
-        assert_eq!(response.message.contains("Phone must be 10 digit"), true);
-    }
-    {
-        // `phone` has 10 digits but contain invalid char
-        let app = app.clone();
-        let body = r#"{"name": "abcd", "phone": "1234O12341"}"#;
-        let res = app.oneshot(req_body(path, body)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-        let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
-        let response: Response = serde_json::from_slice(&body).unwrap();
-        println!("{:?}", response);
-        assert_eq!(response.success, false);
-        assert_eq!(response.message.contains("Phone must be all digits"), true);
-    }
-    {
-        // duplicate phone
-        let body = format!("{{\"name\": \"abcd\", \"phone\": \"{}\"}}", phone1);
-        let app1 = app.clone();
-        let res = app1.oneshot(req_body(path, &body)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::CREATED);
-        let app2 = app.clone();
-        let res = app2.oneshot(req_body(path, &body)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-        let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
-        let response: Response = serde_json::from_slice(&body).unwrap();
-        println!("{:?}", response);
-        assert_eq!(response.success, false);
-        assert_eq!(
-            response
-                .message
-                .contains("User already exists with same phone"),
-            true
-        );
-    }
-    {
-        // duplicate email check
-        let email = format!("{}@email.com", get_epoch_ts());
-        let body1 = format!(
-            "{{\"name\": \"abcd\", \"phone\": \"{}\", \"email\":\"{}\"}}",
-            phone2, &email
-        );
-        let body2 = format!(
-            "{{\"name\": \"abcd\", \"phone\": \"{}\", \"email\":\"{}\"}}",
-            phone3, &email
-        );
-        let app1 = app.clone();
-        let res = app1.oneshot(req_body(path, &body1)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::CREATED);
-        let app2 = app.clone();
-        let res = app2.oneshot(req_body(path, &body2)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-        let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
-        let response: Response = serde_json::from_slice(&body).unwrap();
-        println!("{:?}", response);
-        assert_eq!(response.success, false);
-        assert_eq!(
-            response
-                .message
-                .contains("User already exists with same email"),
-            true
-        );
-    }
-    {
-        // successful creation data validation
-        let body = format!("{{\"name\": \"abcd\", \"phone\": \"{}\"}}", phone4.clone());
-        let app = app.clone();
-        let res = app.oneshot(req_body(path, &body)).await.unwrap();
-        assert_eq!(res.status(), StatusCode::CREATED);
-        check_user_data_in_database(phone4).await;
-    }
-}
-
-async fn check_user_data_in_database(phone: String) {
-    let db = AppDatabase::new().await.unwrap();
-    let ts = get_epoch_ts();
-    let filter = doc! {"phone": &phone};
-    let user = db
-        .find_one::<User>(DB_NAME, COLL_USERS, Some(filter), None)
-        .await
-        .unwrap();
-    let user = user.unwrap();
-    assert_eq!(user.id.ge(&0), true);
-    assert_eq!(user.name.as_str(), "abcd");
-    assert_eq!(user.phone.unwrap().as_str(), &phone);
-    assert_eq!(user.email, None);
-    assert_eq!(user.profile_pic, None);
-    assert_eq!(user.login_scheme, LoginScheme::OTP_BASED);
-    assert_eq!(user.is_active, true);
-    assert_eq!(user.has_used_referral_code, Some(false));
-    assert_eq!(user.referral_code.is_some(), true);
-    assert_eq!(user.referred_by, None);
-    assert_eq!(user.total_played, Some(0));
-    assert_eq!(user.contest_won, Some(0));
-    assert_eq!(user.total_earning, Some(Money::default()));
-    assert_eq!(user.fcm_tokens, None);
-    let filter = doc! {"userId": user.id};
-    let otp = db
-        .find_one::<Otp>(DB_NAME, COLL_OTP, Some(filter), None)
-        .await
-        .unwrap();
-    let otp = otp.unwrap();
-    assert_eq!(otp.otp.len(), OTP_LENGTH as usize);
-    assert_eq!(otp.is_used, false);
-    assert_eq!(otp.valid_till.ge(&ts), true);
+    let db_client = get_database().await;
+    let db_client = Arc::new(db_client);
+    let app = build_app_routes(db_client.clone());
+    tokio::join!(
+        test_empty_body(app.clone()),
+        test_missing_phone(app.clone()),
+        test_invalid_phone(app.clone()),
+        test_invalid_char_in_phone(app.clone()),
+        test_duplicate_phone(app.clone(), &phone1),
+        test_duplicate_email(app.clone(), &phone2, &phone3),
+        test_successful_signup(app, db_client, &phone4),
+    );
 }

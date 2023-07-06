@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{http::StatusCode, Router};
 use mongodb::bson::doc;
 use tower::ServiceExt;
@@ -10,11 +12,15 @@ use trailsbuddy_backend_rust::{
     utils::get_epoch_ts,
 };
 
-use crate::helper::helper::{build_get_request, build_post_request, get_database, GenericResponse};
+use crate::helper::helper::{build_get_request, build_post_request, GenericResponse};
 
 pub async fn create_user(app: Router, phone: &str, name: &str) {
     let body = format!("{{\"name\": \"{}\", \"phone\": \"{}\"}}", name, phone);
-    let request = build_post_request("/user/create", &body);
+    create_user_with_body(app, &body).await;
+}
+
+pub async fn create_user_with_body(app: Router, body: &str) {
+    let request = build_post_request("/api/v1/user/create", &body);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::CREATED);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -25,7 +31,7 @@ pub async fn create_user(app: Router, phone: &str, name: &str) {
 }
 
 pub async fn verify_user(app: Router, phone: &str) {
-    let path = format!("/user/verify?phone={}", phone);
+    let path = format!("/api/v1/user/verify?phone={}", phone);
     let request = build_get_request(path.as_str(), None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -37,7 +43,7 @@ pub async fn verify_user(app: Router, phone: &str) {
 }
 
 pub async fn check_otp(app: Router, phone: &str, otp: &str) -> CheckOtpResponse {
-    let path = format!("/user/checkOtp?phone={}&otp={}", phone, otp);
+    let path = format!("/api/v1/user/checkOtp?phone={}&otp={}", phone, otp);
     let request = build_get_request(path.as_str(), None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -51,7 +57,7 @@ pub async fn check_otp(app: Router, phone: &str, otp: &str) -> CheckOtpResponse 
     response
 }
 
-async fn get_user(db: &AppDatabase, phone: &str) -> Option<User> {
+async fn get_user(db: Arc<AppDatabase>, phone: &str) -> Option<User> {
     let filter = doc! {"phone": phone};
     let user = db
         .find_one::<User>(DB_NAME, COLL_USERS, Some(filter), None)
@@ -60,7 +66,7 @@ async fn get_user(db: &AppDatabase, phone: &str) -> Option<User> {
     user
 }
 
-async fn get_otp_val(db: &AppDatabase, phone: &str) -> String {
+async fn get_otp_val(db: Arc<AppDatabase>, phone: &str) -> String {
     let filter = doc! {"phone": &phone};
     let user = db
         .find_one::<User>(DB_NAME, COLL_USERS, Some(filter), None)
@@ -79,12 +85,12 @@ async fn get_otp_val(db: &AppDatabase, phone: &str) -> String {
 
 pub async fn create_user_and_get_token(
     app: Router,
+    db: Arc<AppDatabase>,
     phone: &str,
     name: &str,
     panic_if_exists: bool,
 ) -> CheckOtpResponse {
-    let db = get_database().await;
-    let user = get_user(&db, phone).await;
+    let user = get_user(db.clone(), phone).await;
     if panic_if_exists && user.is_some() {
         panic!("User already exists with phone: {}", phone);
     }
@@ -93,6 +99,6 @@ pub async fn create_user_and_get_token(
     } else {
         create_user(app.clone(), phone, name).await;
     }
-    let otp = get_otp_val(&db, phone).await;
+    let otp = get_otp_val(db, phone).await;
     check_otp(app, phone, &otp).await
 }
