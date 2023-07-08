@@ -11,9 +11,12 @@ use tower_http::{
     cors::CorsLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer, trace::TraceLayer,
     ServiceBuilderExt,
 };
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     handlers::{
         clip::{
             add_view::add_clip_view_handler, create::create_clip_handler,
@@ -51,7 +54,7 @@ use crate::{
         temp_api::{temp_api_get_otp, temp_api_get_token},
         upload::single::upload_handler,
         user::{
-            admin_login::{admin_generate_otp, admin_signup_handler},
+            admin_login::{admin_generate_otp, admin_login_handler, admin_signup_handler},
             check_otp::check_otp_handler,
             create::create_user_handler,
             get_leaderboard::get_leaderboard_handler,
@@ -69,8 +72,8 @@ use crate::{
             withdraw_bal::{withdraw_bal_end_handler, withdraw_bal_init_handler},
         },
     },
+    swagger::ApiDoc,
 };
-use crate::{database::AppDatabase, handlers::user::admin_login::admin_login_handler};
 
 /// Initializes the app with all routes and middlewares
 pub fn build_app_routes(db_client: Arc<AppDatabase>) -> Router {
@@ -178,6 +181,7 @@ pub fn build_app_routes(db_client: Arc<AppDatabase>) -> Router {
 
     // create the app instance with all routes and middleware
     let app = Router::new()
+        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/", get(default_route_handler))
         .nest("/api/v1", api_route)
         .layer(middleware)
@@ -187,7 +191,7 @@ pub fn build_app_routes(db_client: Arc<AppDatabase>) -> Router {
 }
 
 /// Initializes the app instance
-pub fn build(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
+pub fn build_app(db_client: Arc<AppDatabase>) -> IntoMakeService<Router> {
     tracing::debug!("Initializing the app");
     let app = build_app_routes(db_client);
     // return the IntoMakeService instance
