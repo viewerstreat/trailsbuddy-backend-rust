@@ -7,18 +7,16 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
+use utoipa::ToSchema;
 use validator::Validate;
 
 use super::otp::get_user_by_id;
 use crate::{
     constants::*,
     database::AppDatabase,
-    handlers::wallet::helper::{insert_wallet_transaction_session, update_wallet_with_session},
+    handlers::*,
     jwt::{JwtClaims, JwtClaimsAdmin},
-    models::{
-        user::{SpecialReferralCode, User},
-        wallet::WalletTransaction,
-    },
+    models::*,
     utils::{get_epoch_ts, validation::validate_future_timestamp, AppError, ValidatedBody},
 };
 
@@ -26,7 +24,7 @@ lazy_static! {
     static ref UPPER_ALPHA_NUM: Regex = Regex::new(r"^[A-Z0-9]+$").unwrap();
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ReqBody {
     #[serde(rename = "referralCode")]
     #[validate(length(equal = "REFERRAL_CODE_LEN"))]
@@ -47,12 +45,30 @@ pub struct SpecialCodeReqBody {
     valid_till: DateTime<Utc>,
 }
 
-/// Update fcmToken for an user
+/// Redeem a referral code
+///
+/// User reedem a referral code after signup
+#[utoipa::path(
+    post,
+    path = "/api/v1/user/useReferralCode",
+    params(("authorization" = String, Header, description = "JWT token")),
+    request_body = ReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Use successfully redeems referral code", body = GenericResponse),
+        (status = StatusCode::NOT_FOUND, description = "User/referral code not found", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+        (status = StatusCode::UNAUTHORIZED, description = "Invalid token", body = GenericResponse)
+    ),
+    security(
+        ("authorization" = [])
+    ),
+    tag = "App User API"
+)]
 pub async fn use_referral_code_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<GenericResponse>, AppError> {
     let user = get_user_by_id(claims.id, &db)
         .await?
         .ok_or(AppError::NotFound("user not found".into()))?;
@@ -88,7 +104,10 @@ pub async fn use_referral_code_handler(
             .ok_or(AppError::NotFound("Invalid referralCode".into()))?;
         add_referral_bonus(&db, claims.id, referrer.id, &body.referral_code).await?;
     }
-    let res = json!({"success": true, "message": "referral code used successfully!!"});
+    let res = GenericResponse {
+        success: true,
+        message: "referral code used successfully!!".to_owned(),
+    };
     Ok(Json(res))
 }
 

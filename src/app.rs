@@ -14,66 +14,7 @@ use tower_http::{
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::{
-    constants::*,
-    database::AppDatabase,
-    handlers::{
-        clip::{
-            add_view::add_clip_view_handler, create::create_clip_handler,
-            get_clip::get_clips_handler,
-        },
-        contest::{
-            activate::{activate_contest_handler, inactivate_contest_handler},
-            create::create_contest_handler,
-            get::get_contest_handler,
-        },
-        default::default_route_handler,
-        favourite::{create::add_favourite_handler, get::get_favourite_handler},
-        global_404::global_404_handler,
-        movie::{
-            add_view::add_movie_view_handler, create::create_movie_handler,
-            details::movie_details_handler, get_movie::get_movie_handler,
-            liked_by_me::is_liked_by_me_handler,
-        },
-        notification::{
-            clear_noti::{clear_all_noti_handler, clear_noti_handler},
-            get_noti::get_noti_handler,
-            mark_read::{mark_all_read_noti_handler, mark_read_noti_handler},
-        },
-        ping::ping_handler,
-        play_tracker::{
-            answer::answer_play_tracker_handler,
-            finish::finish_play_tracker_handler,
-            get::get_play_tracker_handler,
-            start::{get_next_ques_handler, start_play_tracker_handler},
-        },
-        question::{
-            create::create_question_handler, delete::delete_question_handler,
-            get::get_question_handler, update::update_question_handler,
-        },
-        temp_api::{temp_api_get_otp, temp_api_get_token},
-        upload::single::upload_handler,
-        user::{
-            admin_login::{admin_generate_otp, admin_login_handler, admin_signup_handler},
-            check_otp::check_otp_handler,
-            create::create_user_handler,
-            get_leaderboard::get_leaderboard_handler,
-            login::login_handler,
-            referral::{create_special_code_handler, use_referral_code_handler},
-            renew_token::renew_token_handler,
-            update::update_user_handler,
-            update_fcm_token::update_fcm_token_handler,
-            verify::verify_user_handler,
-        },
-        wallet::{
-            add_bal::{add_bal_end_handler, add_bal_init_handler},
-            get_bal::get_bal_handler,
-            pay_contest::pay_contest_handler,
-            withdraw_bal::{withdraw_bal_end_handler, withdraw_bal_init_handler},
-        },
-    },
-    swagger::ApiDoc,
-};
+use crate::{constants::*, database::AppDatabase, handlers::*, swagger::ApiDoc};
 
 /// Initializes the app with all routes and middlewares
 pub fn build_app_routes(db_client: Arc<AppDatabase>) -> Router {

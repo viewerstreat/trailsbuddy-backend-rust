@@ -3,7 +3,8 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::json;
+
+use crate::models::GenericResponse;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -30,28 +31,36 @@ impl IntoResponse for AppError {
         match self {
             Self::BadRequestErr(msg) => {
                 tracing::debug!("Bad request: {}", msg);
-                let json_val = json!({"success": false, "message": msg});
-                let res = (StatusCode::BAD_REQUEST, Json(json_val));
-                res.into_response()
+                let response = GenericResponse {
+                    success: false,
+                    message: msg.to_owned(),
+                };
+                (StatusCode::BAD_REQUEST, Json(response)).into_response()
             }
             Self::NotFound(msg) => {
                 tracing::debug!("Not Found: {}", msg);
-                let json_val = json!({"success": false, "message": msg});
-                let res = (StatusCode::NOT_FOUND, Json(json_val));
-                res.into_response()
+                let response = GenericResponse {
+                    success: false,
+                    message: msg.to_owned(),
+                };
+                (StatusCode::NOT_FOUND, Json(response)).into_response()
             }
             Self::Auth(msg) => {
                 tracing::debug!("Unauthorized: {}", msg);
-                let json_val = json!({"success": false, "message": msg});
-                let res = (StatusCode::UNAUTHORIZED, Json(json_val));
-                res.into_response()
+                let response = GenericResponse {
+                    success: false,
+                    message: msg.to_owned(),
+                };
+                (StatusCode::UNAUTHORIZED, Json(response)).into_response()
             }
             Self::AnyError(err) => {
                 let msg = format!("Something went wrong: {err}");
                 tracing::debug!("{msg}");
-                let json_val = json!({"success": false, "message": msg});
-                let res = (StatusCode::INTERNAL_SERVER_ERROR, Json(json_val));
-                res.into_response()
+                let response = GenericResponse {
+                    success: false,
+                    message: msg.to_owned(),
+                };
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(response)).into_response()
             }
         }
     }

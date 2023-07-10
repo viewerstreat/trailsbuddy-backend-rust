@@ -12,6 +12,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
+use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::{
@@ -27,13 +28,13 @@ use crate::{
 
 use super::create::create_uniq_referral_code;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub enum SocialLoginScheme {
     GOOGLE,
     FACEBOOK,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
     pub login_scheme: SocialLoginScheme,
@@ -41,7 +42,7 @@ pub struct LoginRequest {
     pub fb_token: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct Response {
     success: bool,
     data: User,
@@ -96,6 +97,19 @@ impl From<SocialLoginScheme> for LoginScheme {
     }
 }
 
+/// Social Login
+///
+/// Login with Facebook & Gmail
+#[utoipa::path(
+    post,
+    path = "/api/v1/user/login",
+    request_body = LoginRequest,
+    responses(
+        (status = StatusCode::OK, description = "Login successful", body = Response),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn login_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<LoginRequest>,

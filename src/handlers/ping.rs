@@ -2,7 +2,7 @@ use axum::Json;
 
 use crate::models::GenericResponse;
 
-/// ping endpoint
+/// Ping endpoint
 ///
 /// Ping the server to get a static response
 #[utoipa::path(
@@ -10,7 +10,8 @@ use crate::models::GenericResponse;
     path = "/api/v1/ping",
     responses(
         (status = 200, description = "Get success response from server", body=GenericResponse)
-    )
+    ),
+    tag = "Debugging API"
 )]
 pub async fn ping_handler() -> Json<GenericResponse> {
     let res = GenericResponse {

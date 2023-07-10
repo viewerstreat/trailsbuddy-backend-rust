@@ -15,3 +15,13 @@ pub struct GenericResponse {
     pub success: bool,
     pub message: String,
 }
+
+pub use clip::*;
+pub use contest::*;
+pub use contest::*;
+pub use movie::*;
+pub use notification::*;
+pub use otp::*;
+pub use play_tracker::*;
+pub use user::*;
+pub use wallet::*;
