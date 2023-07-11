@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     database::AppDatabase,
-    handlers::user::admin_login::get_admin_user_by_id,
+    handlers::user::otp::get_admin_user_by_id,
     utils::{get_epoch_ts, AppError},
 };
 
@@ -117,10 +117,13 @@ impl FromRequestParts<Arc<AppDatabase>> for JwtClaimsAdmin {
             decode::<JwtClaims>(bearer.token(), &JWT_KEYS.decoding, &Validation::default())
                 .map_err(|_| AppError::Auth("Invalid Token".into()))?;
         let user_id = token_data.claims.id;
-        get_admin_user_by_id(state, user_id).await.map_err(|err| {
-            tracing::debug!("{:?}", err);
-            AppError::Auth("user validation failed".into())
-        })?;
+        get_admin_user_by_id(user_id, state)
+            .await
+            .map_err(|err| {
+                tracing::debug!("{:?}", err);
+                AppError::AnyError(err.into())
+            })?
+            .ok_or(AppError::Auth("user do not exists".into()))?;
         let claims = JwtClaimsAdmin {
             data: token_data.claims,
         };

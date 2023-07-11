@@ -110,8 +110,8 @@ impl SpecialReferralCode {
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all(serialize = "camelCase"))]
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct LeaderboardData {
     id: u32,
     name: String,
@@ -138,7 +138,7 @@ impl LeaderboardData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminUser {
     pub id: u32,

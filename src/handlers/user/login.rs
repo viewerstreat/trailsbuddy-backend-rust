@@ -12,42 +12,16 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
-use utoipa::ToSchema;
-use validator::Validate;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JWT_KEYS,
-    models::{
-        user::{LoginScheme, User},
-        wallet::Money,
-    },
+    models::*,
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
 
 use super::create::create_uniq_referral_code;
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub enum SocialLoginScheme {
-    GOOGLE,
-    FACEBOOK,
-}
-
-#[derive(Debug, Deserialize, Validate, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginRequest {
-    pub login_scheme: SocialLoginScheme,
-    pub id_token: Option<String>,
-    pub fb_token: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct Response {
-    success: bool,
-    data: User,
-    token: String,
-}
 
 #[derive(Debug)]
 pub struct TokenData {
@@ -88,15 +62,6 @@ impl From<IdTokenClaims> for TokenData {
     }
 }
 
-impl From<SocialLoginScheme> for LoginScheme {
-    fn from(value: SocialLoginScheme) -> Self {
-        match value {
-            SocialLoginScheme::GOOGLE => Self::GOOGLE,
-            SocialLoginScheme::FACEBOOK => Self::FACEBOOK,
-        }
-    }
-}
-
 /// Social Login
 ///
 /// Login with Facebook & Gmail
@@ -105,7 +70,7 @@ impl From<SocialLoginScheme> for LoginScheme {
     path = "/api/v1/user/login",
     request_body = LoginRequest,
     responses(
-        (status = StatusCode::OK, description = "Login successful", body = Response),
+        (status = StatusCode::OK, description = "Login successful", body = LoginResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
     ),
     tag = "App User API"
@@ -113,14 +78,15 @@ impl From<SocialLoginScheme> for LoginScheme {
 pub async fn login_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<LoginRequest>,
-) -> Result<Json<Response>, AppError> {
+) -> Result<Json<LoginResponse>, AppError> {
     let token_data = verify_token(&body).await?;
     let user = create_or_update_user(&db, &token_data, body.login_scheme.into()).await?;
     let token = JWT_KEYS.generate_token(user.id, Some(user.name.to_owned()))?;
-    let res = Response {
+    let res = LoginResponse {
         success: true,
         data: user,
         token,
+        refresh_token: None,
     };
     Ok(Json(res))
 }

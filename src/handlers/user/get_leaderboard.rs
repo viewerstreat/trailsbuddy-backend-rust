@@ -1,24 +1,21 @@
 use axum::{extract::State, Json};
 use mongodb::{bson::doc, options::FindOptions};
-use serde::Serialize;
 use std::sync::Arc;
 
-use crate::{
-    constants::*,
-    database::AppDatabase,
-    models::user::{LeaderboardData, User},
-    utils::AppError,
-};
+use crate::{constants::*, database::AppDatabase, models::*, utils::AppError};
 
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: Vec<LeaderboardData>,
-}
-
+/// Get Leaderboard data
+#[utoipa::path(
+    get,
+    path = "/api/v1/user/getLeaderboard",
+    responses(
+        (status = StatusCode::OK, description = "Leaderboard data list", body = LeaderboardResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn get_leaderboard_handler(
     State(db): State<Arc<AppDatabase>>,
-) -> Result<Json<Response>, AppError> {
+) -> Result<Json<LeaderboardResponse>, AppError> {
     let filter = Some(doc! {"isActive": true, "totalPlayed": {"$gt": 0}});
     let sort = doc! {
         "totalEarning.real": -1,
@@ -45,7 +42,7 @@ pub async fn get_leaderboard_handler(
             )
         })
         .collect::<Vec<_>>();
-    let res = Response {
+    let res = LeaderboardResponse {
         success: true,
         data,
     };

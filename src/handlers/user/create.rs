@@ -1,39 +1,14 @@
 use axum::{extract::State, http::StatusCode, Json};
 use mongodb::bson::{doc, Document};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use utoipa::ToSchema;
-use validator::Validate;
 
 use super::otp::generate_send_otp;
-use crate::database::AppDatabase;
-use crate::models::GenericResponse;
 use crate::{
     constants::*,
-    models::{user::User, wallet::Money},
-    utils::{
-        generate_referral_code, get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError,
-        ValidatedBody,
-    },
+    database::AppDatabase,
+    models::*,
+    utils::{generate_referral_code, get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
-
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
-pub struct CreateUserReq {
-    #[validate(length(min = 1, max = 50))]
-    name: String,
-
-    #[validate(custom(function = "validate_phonenumber"))]
-    phone: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[validate(email)]
-    email: Option<String>,
-
-    #[serde(rename = "profilePic")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[validate(url)]
-    profile_pic: Option<String>,
-}
 
 impl CreateUserReq {
     async fn create_user(&self, db: &Arc<AppDatabase>) -> anyhow::Result<User> {

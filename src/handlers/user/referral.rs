@@ -1,14 +1,7 @@
 use axum::{extract::State, Json};
-use chrono::{prelude::*, serde::ts_seconds};
 use futures::FutureExt;
-use lazy_static::lazy_static;
 use mongodb::{bson::doc, ClientSession};
-use regex::Regex;
-use serde::Deserialize;
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use utoipa::ToSchema;
-use validator::Validate;
 
 use super::otp::get_user_by_id;
 use crate::{
@@ -17,33 +10,8 @@ use crate::{
     handlers::*,
     jwt::{JwtClaims, JwtClaimsAdmin},
     models::*,
-    utils::{get_epoch_ts, validation::validate_future_timestamp, AppError, ValidatedBody},
+    utils::{get_epoch_ts, AppError, ValidatedBody},
 };
-
-lazy_static! {
-    static ref UPPER_ALPHA_NUM: Regex = Regex::new(r"^[A-Z0-9]+$").unwrap();
-}
-
-#[derive(Debug, Deserialize, Validate, ToSchema)]
-pub struct ReqBody {
-    #[serde(rename = "referralCode")]
-    #[validate(length(equal = "REFERRAL_CODE_LEN"))]
-    #[validate(regex = "UPPER_ALPHA_NUM")]
-    referral_code: String,
-}
-
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct SpecialCodeReqBody {
-    #[validate(length(equal = "REFERRAL_CODE_LEN"))]
-    #[validate(regex = "UPPER_ALPHA_NUM")]
-    referral_code: String,
-    #[validate(range(min = 1))]
-    bonus: u64,
-    #[serde(with = "ts_seconds")]
-    #[validate(custom = "validate_future_timestamp")]
-    valid_till: DateTime<Utc>,
-}
 
 /// Redeem a referral code
 ///
@@ -52,22 +20,20 @@ pub struct SpecialCodeReqBody {
     post,
     path = "/api/v1/user/useReferralCode",
     params(("authorization" = String, Header, description = "JWT token")),
-    request_body = ReqBody,
+    security(("authorization" = [])),
+    request_body = ReferralCodeReqBody,
     responses(
-        (status = StatusCode::OK, description = "Use successfully redeems referral code", body = GenericResponse),
+        (status = StatusCode::OK, description = "User successfully redeems referral code", body = GenericResponse),
         (status = StatusCode::NOT_FOUND, description = "User/referral code not found", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
         (status = StatusCode::UNAUTHORIZED, description = "Invalid token", body = GenericResponse)
-    ),
-    security(
-        ("authorization" = [])
     ),
     tag = "App User API"
 )]
 pub async fn use_referral_code_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(body): ValidatedBody<ReqBody>,
+    ValidatedBody(body): ValidatedBody<ReferralCodeReqBody>,
 ) -> Result<Json<GenericResponse>, AppError> {
     let user = get_user_by_id(claims.id, &db)
         .await?
@@ -111,12 +77,29 @@ pub async fn use_referral_code_handler(
     Ok(Json(res))
 }
 
-/// Create special referral codes
+/// Create special referral code
+///
+/// Admin user creates a special referral code
+#[utoipa::path(
+    post,
+    path = "/api/v1/admin/createSpecialReferralCode",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    request_body = SpecialCodeReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Referral code saved", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+        (status = StatusCode::UNAUTHORIZED, description = "Invalid token", body = GenericResponse)
+    ),
+    security(
+        ("authorization" = [])
+    ),
+    tag = "Admin API"
+)]
 pub async fn create_special_code_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<SpecialCodeReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let curr_ts = get_epoch_ts() as i64;
     if body.valid_till.timestamp() <= curr_ts {
@@ -150,7 +133,10 @@ pub async fn create_special_code_handler(
         None,
     )
     .await?;
-    let res = json!({"success": true, "message": "referral code saved"});
+    let res = GenericResponse {
+        success: true,
+        message: "referral code saved".to_owned(),
+    };
     Ok(Json(res))
 }
 
