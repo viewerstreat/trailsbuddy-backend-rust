@@ -14,8 +14,6 @@ use crate::{
 };
 
 /// Add user view for clip
-///
-/// User reedem a referral code after signup
 #[utoipa::path(
     post,
     path = "/api/v1/clip/addView",
@@ -24,7 +22,7 @@ use crate::{
     request_body = ClipAddViewReqBody,
     responses(
         (status = StatusCode::OK, description = "Successful", body = AddViewResponse),
-        (status = StatusCode::NOT_FOUND, description = "clip code not found", body = GenericResponse),
+        (status = StatusCode::NOT_FOUND, description = "clip not found", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
         (status = StatusCode::UNAUTHORIZED, description = "Invalid token", body = GenericResponse)
     ),

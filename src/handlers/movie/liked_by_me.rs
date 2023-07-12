@@ -3,35 +3,35 @@ use axum::{
     Json,
 };
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaims,
-    models::movie::Movie,
+    models::*,
     utils::{parse_object_id, AppError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    movie_id: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Response {
-    success: bool,
-    is_liked_by_me: bool,
-}
-
+/// Get movie liked by me
+///
+/// Get if the movie is liked by the logged in user
+#[utoipa::path(
+    get,
+    path = "/api/v1/movie/isLikedByMe",
+    params(MovieDetailParams, ("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "Liked by me", body = MovieLikedResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn is_liked_by_me_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Query(params): Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    Query(params): Query<MovieDetailParams>,
+) -> Result<Json<MovieLikedResponse>, AppError> {
     let oid = parse_object_id(&params.movie_id, "invalid movieId")?;
     let filter = Some(doc! {"_id": oid});
     let movie = db
@@ -48,7 +48,7 @@ pub async fn is_liked_by_me_handler(
             Some(is_liked)
         })
         .unwrap_or(false);
-    let res = Response {
+    let res = MovieLikedResponse {
         success: true,
         is_liked_by_me,
     };

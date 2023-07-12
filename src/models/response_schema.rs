@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utoipa::ToSchema;
 
-use super::{AdminUser, ClipRespData, LeaderboardData, User};
+use super::{AdminUser, ClipRespData, LeaderboardData, MovieDetails, MovieRespData, User};
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct GenericResponse {
@@ -92,4 +92,26 @@ pub struct AddViewResponse {
     pub success: bool,
     pub message: String,
     pub view_count: u32,
+}
+
+/// response schema for create movie
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MovieResponse {
+    pub success: bool,
+    pub data: MovieRespData,
+}
+
+/// response schema for movie details response
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MovieDetailResponse {
+    pub success: bool,
+    pub data: MovieDetails,
+}
+
+/// response schema for movie liked by me
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MovieLikedResponse {
+    pub success: bool,
+    pub is_liked_by_me: bool,
 }

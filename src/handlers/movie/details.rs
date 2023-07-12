@@ -3,32 +3,32 @@ use axum::{
     Json,
 };
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
-    models::movie::MovieDetails,
+    models::*,
     utils::{parse_object_id, AppError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    movie_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: MovieDetails,
-}
-
+/// Get movie details
+///
+/// Get details of a movie
+#[utoipa::path(
+    get,
+    path = "/api/v1/movie/details",
+    params(MovieDetailParams),
+    responses(
+        (status = StatusCode::OK, description = "Movie details", body = MovieDetailResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn movie_details_handler(
     State(db): State<Arc<AppDatabase>>,
-    Query(params): Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    Query(params): Query<MovieDetailParams>,
+) -> Result<Json<MovieDetailResponse>, AppError> {
     let oid = parse_object_id(&params.movie_id, "invalid movieId")?;
     let filter = Some(doc! {"_id": oid});
     let mut movie = db
@@ -37,7 +37,7 @@ pub async fn movie_details_handler(
         .ok_or(AppError::NotFound("movie not found".into()))?;
     movie.view_count = get_view_count(&movie);
     movie.like_count = get_like_count(&movie);
-    let res = Response {
+    let res = MovieDetailResponse {
         success: true,
         data: movie,
     };

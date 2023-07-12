@@ -8,7 +8,7 @@ use validator::Validate;
 
 use crate::{
     constants::*,
-    utils::{validate_future_timestamp, validate_phonenumber},
+    utils::{validate_future_timestamp, validate_phonenumber, validate_tags},
 };
 
 use super::LoginScheme;
@@ -205,4 +205,72 @@ pub struct CreateClipReqBody {
 #[serde(rename_all = "camelCase")]
 pub struct ClipAddViewReqBody {
     pub clip_id: String,
+}
+
+/// request schema for create movie
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateMovieReqBody {
+    #[validate(length(min = 1, max = 100))]
+    pub name: String,
+    #[validate(length(min = 1))]
+    pub description: String,
+    #[validate(custom(function = "validate_tags"))]
+    pub tags: Option<Vec<String>>,
+    #[validate(url)]
+    pub banner_image_url: String,
+    #[validate(url)]
+    pub video_url: String,
+    #[validate(length(min = 1))]
+    pub sponsored_by: String,
+    #[validate(url)]
+    pub sponsored_by_logo: Option<String>,
+    #[serde(with = "ts_seconds")]
+    pub release_date: DateTime<Utc>,
+    pub release_outlets: Option<Vec<String>>,
+    #[serde(with = "ts_seconds")]
+    #[validate(custom = "validate_future_timestamp")]
+    pub movie_promotion_expiry: DateTime<Utc>,
+}
+
+impl<'__s> utoipa::ToSchema<'__s> for CreateMovieReqBody {
+    fn schema() -> ToSchemaRetType<'__s> {
+        use utoipa::openapi::ObjectBuilder;
+        let string = utoipa::openapi::SchemaType::String;
+        let name = ObjectBuilder::new().schema_type(string.clone());
+        let example = json!({
+            "name":"string",
+            "description": "string",
+            "tags": ["string"],
+            "bannerImageUrl": "string",
+            "videoUrl": "string",
+            "sponsoredBy": "string",
+            "sponsoredByLogo": "string",
+            "releaseDate": 1689219392,
+            "releaseOutlets": ["string"],
+            "moviePromotionExpiry": 1689219392
+        });
+        (
+            "CreateMovieReqBody",
+            utoipa::openapi::ObjectBuilder::new()
+                .property("name", name)
+                .required("name")
+                .example(Some(example))
+                .into(),
+        )
+    }
+}
+
+/// request schema for movie details
+#[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct MovieDetailParams {
+    pub movie_id: String,
+}
+
+/// request schema to add view for movie
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MovieAddViewReqBody {
+    pub movie_id: String,
 }

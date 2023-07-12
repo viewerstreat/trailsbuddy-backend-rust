@@ -26,6 +26,11 @@ use utoipa::{
         crate::handlers::clip::get_clip::get_clips_handler,
         crate::handlers::clip::create::create_clip_handler,
         crate::handlers::clip::add_view::add_clip_view_handler,
+        crate::handlers::movie::get_movie::get_movie_handler,
+        crate::handlers::movie::create::create_movie_handler,
+        crate::handlers::movie::details::movie_details_handler,
+        crate::handlers::movie::add_view::add_movie_view_handler,
+        crate::handlers::movie::liked_by_me::is_liked_by_me_handler,
     ),
     components(
         schemas(
@@ -40,6 +45,8 @@ use utoipa::{
             crate::models::AdminSignupRequest,
             crate::models::CreateClipReqBody,
             crate::models::ClipAddViewReqBody,
+            crate::models::CreateMovieReqBody,
+            crate::models::MovieAddViewReqBody,
 
             crate::models::GenericResponse,
             crate::models::LoginResponse,
@@ -49,6 +56,9 @@ use utoipa::{
             crate::models::GetClipResponse,
             crate::models::ClipResponse,
             crate::models::AddViewResponse,
+            crate::models::MovieResponse,
+            crate::models::MovieDetailResponse,
+            crate::models::MovieLikedResponse,
 
             crate::models::User,
             crate::models::AdminUser,
@@ -59,6 +69,9 @@ use utoipa::{
             crate::models::ClipProps,
             crate::models::LikesEntry,
             crate::models::ViewsEntry,
+            crate::models::MovieProps,
+            crate::models::MovieRespData,
+            crate::models::MovieDetails,
 
             crate::models::SocialLoginScheme,
             crate::models::LoginScheme,

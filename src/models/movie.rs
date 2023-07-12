@@ -1,9 +1,10 @@
 use mongodb::bson::serde_helpers::hex_string_as_object_id;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::models::clip::{LikesEntry, ViewsEntry};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MovieProps {
     pub name: String,
@@ -32,7 +33,7 @@ pub struct Movie {
     pub updated_ts: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MovieRespData {
     #[serde(rename = "_id")]
@@ -50,7 +51,7 @@ impl Movie {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MovieDetails {
     #[serde(rename = "_id")]
