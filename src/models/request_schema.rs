@@ -175,3 +175,34 @@ pub struct AdminSignupRequest {
     #[validate(length(min = 1, max = 50))]
     pub name: String,
 }
+
+/// request schema for get clip
+#[derive(Debug, Serialize, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct GetClipParams {
+    #[serde(rename = "_id")]
+    pub id: Option<String>,
+    pub page_index: Option<u64>,
+    pub page_size: Option<u64>,
+}
+
+/// request schema for clip create
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateClipReqBody {
+    #[validate(length(min = 1, max = 100))]
+    pub name: String,
+    #[validate(length(min = 1))]
+    pub description: String,
+    #[validate(url)]
+    pub banner_image_url: String,
+    #[validate(url)]
+    pub video_url: String,
+}
+
+/// request schema to add view for clip
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipAddViewReqBody {
+    pub clip_id: String,
+}

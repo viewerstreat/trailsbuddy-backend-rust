@@ -22,7 +22,10 @@ use utoipa::{
         crate::handlers::user::referral::create_special_code_handler,
         crate::handlers::user::admin_login::admin_signup_handler,
         crate::handlers::user::admin_login::admin_generate_otp,
-        crate::handlers::user::admin_login::admin_login_handler
+        crate::handlers::user::admin_login::admin_login_handler,
+        crate::handlers::clip::get_clip::get_clips_handler,
+        crate::handlers::clip::create::create_clip_handler,
+        crate::handlers::clip::add_view::add_clip_view_handler,
     ),
     components(
         schemas(
@@ -35,20 +38,30 @@ use utoipa::{
             crate::models::SpecialCodeReqBody,
             crate::models::UpdateUserReq,
             crate::models::AdminSignupRequest,
+            crate::models::CreateClipReqBody,
+            crate::models::ClipAddViewReqBody,
 
             crate::models::GenericResponse,
             crate::models::LoginResponse,
             crate::models::LeaderboardResponse,
             crate::models::UpdateUserResponse,
             crate::models::AdminLoginResponse,
+            crate::models::GetClipResponse,
+            crate::models::ClipResponse,
+            crate::models::AddViewResponse,
 
-            crate::models::user::User,
-            crate::models::user::AdminUser,
-            crate::models::user::LeaderboardData,
-            crate::models::wallet::Money,
+            crate::models::User,
+            crate::models::AdminUser,
+            crate::models::LeaderboardData,
+            crate::models::Money,
+            crate::models::WrapDocument,
+            crate::models::ClipRespData,
+            crate::models::ClipProps,
+            crate::models::LikesEntry,
+            crate::models::ViewsEntry,
 
             crate::models::SocialLoginScheme,
-            crate::models::user::LoginScheme,
+            crate::models::LoginScheme,
 
         )
     ),

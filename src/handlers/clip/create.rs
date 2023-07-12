@@ -1,41 +1,35 @@
 use axum::{extract::State, Json};
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use validator::Validate;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaimsAdmin,
-    models::clip::{ClipProps, ClipRespData, Clips},
+    models::*,
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateClipReqBody {
-    #[validate(length(min = 1, max = 100))]
-    name: String,
-    #[validate(length(min = 1))]
-    description: String,
-    #[validate(url)]
-    banner_image_url: String,
-    #[validate(url)]
-    video_url: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: ClipRespData,
-}
-
+/// Clip create
+///
+/// Create a new clip
+#[utoipa::path(
+    post,
+    path = "/api/v1/clip",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    request_body = CreateClipReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Clip created", body = ClipResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn create_clip_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateClipReqBody>,
-) -> Result<Json<Response>, AppError> {
+) -> Result<Json<ClipResponse>, AppError> {
     let claims = claims.data;
     check_duplicate_name(&db, &body.name).await?;
     let ts = get_epoch_ts();
@@ -58,7 +52,7 @@ pub async fn create_clip_handler(
     let result = db
         .insert_one::<Clips>(DB_NAME, COLL_CLIPS, &clip, None)
         .await?;
-    let res = Response {
+    let res = ClipResponse {
         success: true,
         data: clip.to_clip_resp_data(&result),
     };

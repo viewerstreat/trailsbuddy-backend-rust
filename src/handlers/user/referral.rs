@@ -84,14 +84,12 @@ pub async fn use_referral_code_handler(
     post,
     path = "/api/v1/admin/createSpecialReferralCode",
     params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
     request_body = SpecialCodeReqBody,
     responses(
         (status = StatusCode::OK, description = "Referral code saved", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
         (status = StatusCode::UNAUTHORIZED, description = "Invalid token", body = GenericResponse)
-    ),
-    security(
-        ("authorization" = [])
     ),
     tag = "Admin API"
 )]

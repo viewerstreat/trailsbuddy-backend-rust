@@ -4,39 +4,40 @@ use axum::{
     Json,
 };
 use mongodb::bson::{doc, Document};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
+    models::*,
     utils::{error_handler::AppError, get_user_id_from_token, parse_object_id},
 };
 
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: Vec<Document>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    #[serde(rename = "_id")]
-    id: Option<String>,
-    page_index: Option<u64>,
-    page_size: Option<u64>,
-}
-
+/// Get clips
+///
+/// Get list of clips
+/// Authoriztion token is non mandatory
+#[utoipa::path(
+    get,
+    path = "/api/v1/clip",
+    params(GetClipParams),
+    params(("authorization" = Option<String>, Header, description = "JWT token")),
+    security((),("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "Clip list", body = GetClipResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn get_clips_handler(
     headers: HeaderMap,
     State(db): State<Arc<AppDatabase>>,
-    Query(params): Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    Query(params): Query<GetClipParams>,
+) -> Result<Json<GetClipResponse>, AppError> {
     let user_id = get_user_id_from_token(&headers);
     let pipeline = pipeline_query(&params, user_id.unwrap_or_default())?;
     let data = db.aggregate(DB_NAME, COLL_CLIPS, pipeline, None).await?;
-    let res = Response {
+    let data = data.into_iter().map(|d| d.into()).collect();
+    let res = GetClipResponse {
         success: true,
         data,
     };
@@ -44,7 +45,7 @@ pub async fn get_clips_handler(
 }
 
 // dynamic find_by filter doc based on the query params
-fn create_find_by_doc(params: &Params) -> Result<Document, AppError> {
+fn create_find_by_doc(params: &GetClipParams) -> Result<Document, AppError> {
     let mut find_by = doc! {"isActive": true};
     if let Some(id) = &params.id {
         let oid = parse_object_id(id, "Unable to parse _id")?;
@@ -53,7 +54,7 @@ fn create_find_by_doc(params: &Params) -> Result<Document, AppError> {
     Ok(find_by)
 }
 
-fn pipeline_query(params: &Params, user_id: u32) -> Result<Vec<Document>, AppError> {
+fn pipeline_query(params: &GetClipParams, user_id: u32) -> Result<Vec<Document>, AppError> {
     let find_by = create_find_by_doc(params)?;
     let likes_filter = doc! {
         "$filter": {
@@ -114,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_create_find_by_doc() {
-        let mut params = Params {
+        let mut params = GetClipParams {
             id: None,
             page_size: None,
             page_index: None,
@@ -149,7 +150,7 @@ mod tests {
             "viewCount": {"$size": "$views"},
             "isLikedByMe": {"$cond": [{"$gt": [{"$size": "$myLikes"}, 0]}, true, false]}
         };
-        let mut params = Params {
+        let mut params = GetClipParams {
             id: None,
             page_size: None,
             page_index: None,
