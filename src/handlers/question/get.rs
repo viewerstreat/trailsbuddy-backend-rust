@@ -3,34 +3,33 @@ use axum::{
     Json,
 };
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
-    jwt::JwtClaims,
-    models::contest::{ContestWithQuestion, Question},
+    jwt::JwtClaimsAdmin,
+    models::*,
     utils::{parse_object_id, AppError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    contest_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: Option<Vec<Question>>,
-}
-
+/// get Question
+#[utoipa::path(
+    get,
+    path = "/api/v1/question",
+    params(ContestActivateReqBody, ("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "question list", body = GetQuestionResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn get_question_handler(
-    _claims: JwtClaims,
+    _claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    params: Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    params: Query<ContestActivateReqBody>,
+) -> Result<Json<GetQuestionResponse>, AppError> {
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
     let contest = db
@@ -40,7 +39,7 @@ pub async fn get_question_handler(
     let data = contest
         .questions
         .and_then(|questions| Some(questions.into_iter().filter(|q| q.is_active).collect()));
-    let res = Response {
+    let res = GetQuestionResponse {
         success: true,
         data,
     };

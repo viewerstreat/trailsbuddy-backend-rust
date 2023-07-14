@@ -1,29 +1,34 @@
 use axum::{extract::State, Json};
 use mongodb::bson::doc;
-use serde::Deserialize;
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaims,
-    models::clip::{LikesEntry, Media, MediaType},
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    media_type: MediaType,
-    media_id: String,
-}
-
+/// Add favourite
+#[utoipa::path(
+    post,
+    path = "/api/v1/favourite",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = AddFavReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Successful", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+        (status = StatusCode::NOT_FOUND, description = "Media not found", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn add_favourite_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    Json(body): Json<AddFavReqBody>,
+) -> Result<Json<GenericResponse>, AppError> {
     let coll = match body.media_type {
         MediaType::Clip => COLL_CLIPS,
         MediaType::Movie => COLL_MOVIES,
@@ -58,6 +63,9 @@ pub async fn add_favourite_handler(
         };
         db.update_one(DB_NAME, coll, filter, update, None).await?;
     }
-    let res = json!({"success": true, "message": "Updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }

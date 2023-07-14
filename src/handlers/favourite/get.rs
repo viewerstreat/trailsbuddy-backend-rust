@@ -3,37 +3,33 @@ use axum::{
     Json,
 };
 use mongodb::bson::{doc, Document};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    constants::*, database::AppDatabase, jwt::JwtClaims, models::clip::MediaType,
-    utils::error_handler::AppError,
+    constants::*, database::AppDatabase, jwt::JwtClaims, models::*, utils::error_handler::AppError,
 };
 
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: Vec<Document>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    media_type: MediaType,
-    page_index: Option<u64>,
-    page_size: Option<u64>,
-}
-
+/// Get favourite
+#[utoipa::path(
+    get,
+    path = "/api/v1/favourite",
+    params(GetFavParams, ("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "Successful", body = GetClipResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn get_favourite_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    params: Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    params: Query<GetFavParams>,
+) -> Result<Json<GetClipResponse>, AppError> {
     let coll = media_collection(&params.media_type);
     let pipeline = pipeline_query(&params, claims.id);
     let data = db.aggregate(DB_NAME, coll, pipeline, None).await?;
-    let res = Response {
+    let data = data.into_iter().map(|v| v.into()).collect();
+    let res = GetClipResponse {
         success: true,
         data,
     };
@@ -47,7 +43,7 @@ fn media_collection(media_type: &MediaType) -> &str {
     }
 }
 
-fn pipeline_query(params: &Params, user_id: u32) -> Vec<Document> {
+fn pipeline_query(params: &GetFavParams, user_id: u32) -> Vec<Document> {
     let find_by = doc! {
         "isActive": true,
         "likes": {"$elemMatch": {"userId": user_id, "isRemoved": false}}

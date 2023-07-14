@@ -1,28 +1,33 @@
 use axum::{extract::State, Json};
 use mongodb::bson::{doc, Document};
-use serde::Deserialize;
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaimsAdmin,
-    models::contest::{Contest, ContestStatus, ContestWithQuestion},
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    contest_id: String,
-}
-
+/// Activate contest
+#[utoipa::path(
+    post,
+    path = "/api/v1/contest/activate",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestActivateReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Contest activated", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn activate_contest_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    Json(body): Json<ContestActivateReqBody>,
+) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
@@ -62,15 +67,31 @@ pub async fn activate_contest_handler(
         }
     };
     update_contest(&db, filter, update).await?;
-    let res = json!({"success": true, "message": "Updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 
+/// Inactivate contest
+#[utoipa::path(
+    post,
+    path = "/api/v1/contest/inActivate",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestActivateReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Contest inactivated", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn inactivate_contest_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    Json(body): Json<ContestActivateReqBody>,
+) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
@@ -97,7 +118,10 @@ pub async fn inactivate_contest_handler(
         }
     };
     update_contest(&db, filter, update).await?;
-    let res = json!({"success": true, "message": "Updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 

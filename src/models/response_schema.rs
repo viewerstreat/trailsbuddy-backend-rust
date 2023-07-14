@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utoipa::ToSchema;
 
-use super::{AdminUser, ClipRespData, LeaderboardData, MovieDetails, MovieRespData, User};
+use super::{
+    AdminUser, ClipRespData, Contest, LeaderboardData, MovieDetails, MovieRespData, Notifications,
+    Question, User,
+};
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct GenericResponse {
@@ -114,4 +117,32 @@ pub struct MovieDetailResponse {
 pub struct MovieLikedResponse {
     pub success: bool,
     pub is_liked_by_me: bool,
+}
+
+/// response schema for create contest
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ContestResponse {
+    pub success: bool,
+    pub data: Contest,
+}
+
+/// response schema for get contest
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GetContestResponse {
+    pub success: bool,
+    pub data: Vec<Contest>,
+}
+
+/// response schema for get question
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GetQuestionResponse {
+    pub success: bool,
+    pub data: Option<Vec<Question>>,
+}
+
+/// response schema for get notification
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GetNotiResp {
+    pub success: bool,
+    pub data: Vec<Notifications>,
 }

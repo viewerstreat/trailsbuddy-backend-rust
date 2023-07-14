@@ -81,7 +81,7 @@ pub struct ClipRespData {
     pub props: ClipProps,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum MediaType {
     Clip,

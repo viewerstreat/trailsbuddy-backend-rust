@@ -1,11 +1,12 @@
 use chrono::{prelude::*, serde::ts_seconds};
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::utils::{deserialize_helper, get_epoch_ts, validation::validate_future_timestamp};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum ContestStatus {
     CREATED,
@@ -81,7 +82,7 @@ pub struct ContestProps {
     pub min_required_players: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Contest {
     #[serde(rename = "_id")]
@@ -114,7 +115,7 @@ pub struct ContestWithQuestion {
     pub updated_by: Option<u32>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AnswerProps {
     #[validate(range(min = 1, max = 4))]
@@ -128,7 +129,7 @@ pub struct AnswerProps {
     pub image_or_video_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Answer {
     #[serde(flatten)]
@@ -137,7 +138,7 @@ pub struct Answer {
     pub is_correct: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionProps {
     #[validate(range(min = 1))]
@@ -151,7 +152,7 @@ pub struct QuestionProps {
     pub image_or_video_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Question {
     #[serde(flatten)]
@@ -162,7 +163,7 @@ pub struct Question {
     pub is_active: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionReqBody {
     #[serde(flatten)]

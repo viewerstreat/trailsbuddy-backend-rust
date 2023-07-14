@@ -11,7 +11,7 @@ use crate::{
     utils::{validate_future_timestamp, validate_phonenumber, validate_tags},
 };
 
-use super::LoginScheme;
+use super::{ContestCategory, ContestProps, LoginScheme, MediaType, QuestionReqBody};
 
 /// request body schema for create user
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
@@ -273,4 +273,112 @@ pub struct MovieDetailParams {
 #[serde(rename_all = "camelCase")]
 pub struct MovieAddViewReqBody {
     pub movie_id: String,
+}
+
+/// request schema to add favourite
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddFavReqBody {
+    pub media_type: MediaType,
+    pub media_id: String,
+}
+
+/// request params for get favourite list
+#[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct GetFavParams {
+    pub media_type: MediaType,
+    pub page_index: Option<u64>,
+    pub page_size: Option<u64>,
+}
+
+impl<'__s> utoipa::ToSchema<'__s> for ContestProps {
+    fn schema() -> ToSchemaRetType<'__s> {
+        use utoipa::openapi::ObjectBuilder;
+        let string = utoipa::openapi::SchemaType::String;
+        let title = ObjectBuilder::new().schema_type(string.clone());
+        let example = json!({
+            "title":"string",
+            "category": "movie",
+            "movieId": "string",
+            "sponsoredBy": "string",
+            "sponsoredByLogo": "string",
+            "bannerImageUrl": "string",
+            "videoUrl": "string",
+            "entryFee": 0,
+            "entryFeeMaxBonusMoney": 0,
+            "prizeSelection": "TOP_WINNERS",
+            "topWinnersCount": 0,
+            "prizeRatioNumerator": 0,
+            "prizeRatioDenominator": 0,
+            "prizeValueRealMoney": 0,
+            "prizeValueBonusMoney": 0,
+            "startTime": 1689219392,
+            "endTime": 1689219392,
+            "minRequiredPlayers": 0
+        });
+        (
+            "ContestProps",
+            utoipa::openapi::ObjectBuilder::new()
+                .property("title", title)
+                .required("title")
+                .example(Some(example))
+                .into(),
+        )
+    }
+}
+
+/// request params for get contest
+#[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct GetContestParams {
+    #[serde(rename = "_id")]
+    pub _id: Option<String>,
+    pub movie_id: Option<String>,
+    pub category: Option<ContestCategory>,
+    pub page_size: Option<u64>,
+    pub page_index: Option<u64>,
+}
+
+/// request schema for contest activate
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct ContestActivateReqBody {
+    pub contest_id: String,
+}
+
+/// request schema for create question
+#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateQuesReqBody {
+    #[validate(length(min = 1))]
+    pub contest_id: String,
+    #[serde(flatten)]
+    #[validate]
+    pub question: QuestionReqBody,
+}
+
+/// request schema for question delete
+#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QuesDelReqBody {
+    #[validate(length(min = 1))]
+    pub contest_id: String,
+    #[validate(range(min = 1))]
+    pub question_no: u32,
+}
+
+/// request params for get notifications
+#[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct GetNotiReq {
+    pub page_index: Option<u64>,
+    pub page_size: Option<u64>,
+}
+
+/// request schema for clear/mark read notification
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct ClearNotiReq {
+    #[validate(length(equal = 24))]
+    pub _id: String,
 }
