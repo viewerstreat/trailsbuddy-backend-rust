@@ -149,8 +149,8 @@ pub struct GetNotiResp {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct GetBalResponse {
-    success: bool,
-    balance: Money,
+    pub success: bool,
+    pub balance: Money,
 }
 impl GetBalResponse {
     pub fn new(balance: Money) -> Self {

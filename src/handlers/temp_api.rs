@@ -13,7 +13,7 @@ use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JWT_KEYS,
-    models::{otp::Otp, user::User},
+    models::{otp::Otp, user::User, AdminUser},
     utils::{get_epoch_ts, validate_phonenumber, AppError},
 };
 
@@ -43,9 +43,11 @@ pub async fn temp_api_get_token(params: Query<Params>) -> Result<Json<JsonValue>
 }
 
 #[derive(Debug, Deserialize, Validate, IntoParams)]
+#[serde(rename_all = "camelCase")]
 pub struct OtpParams {
     #[validate(custom(function = "validate_phonenumber"))]
     phone: String,
+    admin_otp: Option<bool>,
 }
 
 /// Temporary API to get OTP
@@ -68,12 +70,21 @@ pub async fn temp_api_get_otp(
         .validate()
         .map_err(|e| AppError::BadRequestErr(e.to_string()))?;
     let filter = Some(doc! {"phone": &params.phone});
-    let user = db
-        .find_one::<User>(DB_NAME, COLL_USERS, filter, None)
-        .await?
-        .ok_or(anyhow::anyhow!("user not found"))?;
+    let user_id = if params.admin_otp == Some(true) {
+        let user = db
+            .find_one::<AdminUser>(DB_NAME, COLL_ADMIN_USERS, filter, None)
+            .await?
+            .ok_or(AppError::NotFound("User not found".into()))?;
+        user.id
+    } else {
+        let user = db
+            .find_one::<User>(DB_NAME, COLL_USERS, filter, None)
+            .await?
+            .ok_or(AppError::NotFound("User not found".into()))?;
+        user.id
+    };
     let ts = get_epoch_ts() as i64;
-    let filter = doc! {"userId": user.id, "validTill": {"$gte": ts}, "isUsed": false};
+    let filter = doc! {"userId": user_id, "validTill": {"$gte": ts}, "isUsed": false};
     let otp = db
         .find_one::<Otp>(DB_NAME, COLL_OTP, Some(filter), None)
         .await?
