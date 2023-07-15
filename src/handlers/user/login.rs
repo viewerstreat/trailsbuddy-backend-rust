@@ -12,40 +12,16 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
-use validator::Validate;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JWT_KEYS,
-    models::{
-        user::{LoginScheme, User},
-        wallet::Money,
-    },
+    models::*,
     utils::{get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Deserialize)]
-pub enum SocialLoginScheme {
-    GOOGLE,
-    FACEBOOK,
-}
-
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginRequest {
-    pub login_scheme: SocialLoginScheme,
-    pub id_token: Option<String>,
-    pub fb_token: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Response {
-    success: bool,
-    data: User,
-    token: String,
-}
+use super::create::create_uniq_referral_code;
 
 #[derive(Debug)]
 pub struct TokenData {
@@ -86,26 +62,31 @@ impl From<IdTokenClaims> for TokenData {
     }
 }
 
-impl From<SocialLoginScheme> for LoginScheme {
-    fn from(value: SocialLoginScheme) -> Self {
-        match value {
-            SocialLoginScheme::GOOGLE => Self::GOOGLE,
-            SocialLoginScheme::FACEBOOK => Self::FACEBOOK,
-        }
-    }
-}
-
+/// Social Login
+///
+/// Login with Facebook & Gmail
+#[utoipa::path(
+    post,
+    path = "/api/v1/user/login",
+    request_body = LoginRequest,
+    responses(
+        (status = StatusCode::OK, description = "Login successful", body = LoginResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn login_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<LoginRequest>,
-) -> Result<Json<Response>, AppError> {
+) -> Result<Json<LoginResponse>, AppError> {
     let token_data = verify_token(&body).await?;
     let user = create_or_update_user(&db, &token_data, body.login_scheme.into()).await?;
     let token = JWT_KEYS.generate_token(user.id, Some(user.name.to_owned()))?;
-    let res = Response {
+    let res = LoginResponse {
         success: true,
         data: user,
         token,
+        refresh_token: None,
     };
     Ok(Json(res))
 }
@@ -197,7 +178,7 @@ async fn create_or_update_user(
         .await?;
     if let Some(user) = user {
         if !user.is_active {
-            let err = AppError::BadRequestErr("user is inactive".into());
+            let err = AppError::Auth("user is inactive".into());
             return Err(err);
         }
         update_user_login(db, user.id, login_scheme).await
@@ -213,7 +194,6 @@ pub async fn update_user_login(
 ) -> Result<User, AppError> {
     let filter = doc! {"id": user_id};
     let ts = get_epoch_ts() as i64;
-    let login_scheme = login_scheme.to_string();
     let update = doc! {"$set": {"lastLoginTime": ts, "loginScheme": login_scheme}};
     let mut options = FindOneAndUpdateOptions::default();
     options.upsert = Some(false);
@@ -232,6 +212,7 @@ async fn create_user(
     login_scheme: LoginScheme,
 ) -> Result<User, AppError> {
     let id = get_seq_nxt_val(USER_ID_SEQ, &db).await?;
+    let referral_code = create_uniq_referral_code(db, id, &token_data.name).await?;
     let ts = get_epoch_ts();
     let mut user = User::default();
     user.id = id;
@@ -245,6 +226,8 @@ async fn create_user(
     user.total_earning = Some(Money::default());
     user.created_ts = Some(ts);
     user.last_login_time = Some(ts);
+    user.has_used_referral_code = Some(false);
+    user.referral_code = Some(referral_code);
     db.insert_one::<User>(DB_NAME, COLL_USERS, &user, None)
         .await?;
     Ok(user)

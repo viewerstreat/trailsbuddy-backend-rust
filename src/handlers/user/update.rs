@@ -3,54 +3,46 @@ use mongodb::{
     bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use validator::Validate;
 
 use super::create::{check_uniq_email, check_uniq_phone};
+use crate::database::AppDatabase;
 use crate::{
     constants::*,
     jwt::JwtClaims,
-    models::user::User,
-    utils::{get_epoch_ts, validate_phonenumber, AppError, ValidatedBody},
+    models::*,
+    utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Default, Clone, Deserialize, Validate)]
-pub struct UpdateUserReq {
-    #[validate(length(min = 1, max = 50))]
-    name: Option<String>,
-
-    #[validate(custom(function = "validate_phonenumber"))]
-    phone: Option<String>,
-
-    #[validate(email)]
-    email: Option<String>,
-
-    #[serde(rename = "profilePic")]
-    #[validate(url)]
-    profile_pic: Option<String>,
-}
-
-#[derive(Debug, Default, Serialize)]
-pub struct UpdateResponse {
-    success: bool,
-    data: User,
-}
-
+/// Update user
+///
+/// Update name, phone, email or profilePic field in user details
+/// phone and email fields are checked for unique value if provided
+#[utoipa::path(
+    post,
+    path = "/api/v1/user/update",
+    request_body = UpdateUserReq,
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "Update successful", body = UpdateUserResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn update_user_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<UpdateUserReq>,
-) -> Result<Json<UpdateResponse>, AppError> {
+) -> Result<Json<UpdateUserResponse>, AppError> {
     // bad request if all params are none
     if body.name.is_none()
         && body.phone.is_none()
         && body.email.is_none()
         && body.profile_pic.is_none()
     {
-        let err = AppError::BadRequestErr("name/phone/email/profilePic is required".into());
+        let err = "name/phone/email/profilePic is required";
+        let err = AppError::BadRequestErr(err.into());
         return Err(err);
     }
     // check if phone already exists in the DB
@@ -85,7 +77,7 @@ pub async fn update_user_handler(
         .await?
         .ok_or(AppError::NotFound("User not found".into()))?;
 
-    let res = UpdateResponse {
+    let res = UpdateUserResponse {
         success: true,
         data: user,
     };

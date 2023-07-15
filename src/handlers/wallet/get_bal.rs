@@ -1,44 +1,27 @@
 use axum::{extract::State, Json};
-use mongodb::bson::doc;
-use serde::Serialize;
 use std::sync::Arc;
 
-use crate::models::wallet::{Money, Wallet};
-use crate::{constants::*, jwt::JwtClaims, utils::AppError};
+use crate::{database::AppDatabase, jwt::JwtClaims, models::*, utils::AppError};
 
-use crate::database::AppDatabase;
+use super::helper::get_user_balance;
 
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    balance: Money,
-}
-impl Response {
-    fn new(balance: Money) -> Self {
-        Self {
-            success: true,
-            balance,
-        }
-    }
-}
-
+/// get user balance
+#[utoipa::path(
+    get,
+    path = "/api/v1/wallet/getBalance",
+    params(GetNotiReq, ("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "balance", body = GetBalResponse),
+        (status = StatusCode::UNAUTHORIZED, description = "balance", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn get_bal_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-) -> Result<Json<Response>, AppError> {
+) -> Result<Json<GetBalResponse>, AppError> {
     let balance = get_user_balance(&db, claims.id).await?.unwrap_or_default();
-    let res = Response::new(balance);
+    let res = GetBalResponse::new(balance);
     Ok(Json(res))
-}
-
-pub async fn get_user_balance(
-    db: &Arc<AppDatabase>,
-    user_id: u32,
-) -> anyhow::Result<Option<Money>> {
-    let filter = doc! {"userId": user_id};
-    let wallet = db
-        .find_one::<Wallet>(DB_NAME, COLL_WALLETS, Some(filter), None)
-        .await?;
-    let balance = wallet.and_then(|wallet| Some(wallet.balance()));
-    Ok(balance)
 }

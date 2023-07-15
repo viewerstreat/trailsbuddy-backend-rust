@@ -1,37 +1,29 @@
 use axum::{extract::State, Json};
 use mongodb::{bson::doc, options::FindOptions};
-use serde::Serialize;
 use std::sync::Arc;
 
-use crate::{
-    constants::*,
-    models::{user::User, wallet::Money},
-    utils::AppError,
-};
+use crate::{constants::*, database::AppDatabase, models::*, utils::AppError};
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all(serialize = "camelCase"))]
-pub struct LeaderboardData {
-    id: u32,
-    name: String,
-    total_played: u32,
-    contest_won: u32,
-    total_earning: Money,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: Vec<LeaderboardData>,
-}
-
+/// Get Leaderboard data
+#[utoipa::path(
+    get,
+    path = "/api/v1/user/getLeaderboard",
+    responses(
+        (status = StatusCode::OK, description = "Leaderboard data list", body = LeaderboardResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn get_leaderboard_handler(
     State(db): State<Arc<AppDatabase>>,
-) -> Result<Json<Response>, AppError> {
+) -> Result<Json<LeaderboardResponse>, AppError> {
     let filter = Some(doc! {"isActive": true, "totalPlayed": {"$gt": 0}});
-    let sort = doc! {"totalEarning": -1, "contestWon": -1, "totalPlayed": -1, "id": 1};
+    let sort = doc! {
+        "totalEarning.real": -1,
+        "totalEarning.bonus": -1,
+        "contestWon": -1,
+        "totalPlayed": -1,
+        "id": 1
+    };
     let mut options = FindOptions::default();
     options.sort = Some(sort);
     let options = Some(options);
@@ -40,15 +32,17 @@ pub async fn get_leaderboard_handler(
         .await?;
     let data = result
         .into_iter()
-        .map(|user| LeaderboardData {
-            id: user.id,
-            name: user.name,
-            total_played: user.total_played.unwrap_or_default(),
-            contest_won: user.contest_won.unwrap_or_default(),
-            total_earning: user.total_earning.unwrap_or_default(),
+        .map(|user| {
+            LeaderboardData::new(
+                user.id,
+                user.name,
+                user.total_played.unwrap_or_default(),
+                user.contest_won.unwrap_or_default(),
+                user.total_earning.unwrap_or_default(),
+            )
         })
         .collect::<Vec<_>>();
-    let res = Response {
+    let res = LeaderboardResponse {
         success: true,
         data,
     };

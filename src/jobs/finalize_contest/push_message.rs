@@ -2,8 +2,9 @@ use mongodb::ClientSession;
 use std::collections::HashMap;
 
 use crate::{
-    constants::*, database::AppDatabase, jobs::notification::notification_req::NotificationReq,
-    models::wallet::Money,
+    constants::*,
+    database::AppDatabase,
+    models::{notification::NotificationReq, wallet::Money},
 };
 
 pub async fn create_push_for_prize_win(

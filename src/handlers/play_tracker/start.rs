@@ -3,102 +3,106 @@ use axum::{
     Json,
 };
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     handlers::play_tracker::get::validate_contest,
     jwt::JwtClaims,
-    models::play_tracker::{PlayTracker, PlayTrackerContest, PlayTrackerStatus, Question},
+    models::*,
     utils::{get_epoch_ts, get_random_num, parse_object_id, AppError},
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    contest_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    contest_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: PlayTracker,
-    question: Question,
-}
-
+/// start play tracker
+#[utoipa::path(
+    post,
+    path = "/api/v1/playTracker/start",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestIdRequest,
+    responses(
+        (status = StatusCode::OK, description = "Start PlayTracker", body = PlayTrackerQuesRes),
+        (status = StatusCode::UNAUTHORIZED, description = "Unauthorized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn start_play_tracker_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<Response>, AppError> {
+    Json(body): Json<ContestIdRequest>,
+) -> Result<Json<PlayTrackerQuesRes>, AppError> {
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
-        check_play_tracker(&db, &contest_id, claims.id)
+        check_play_tracker(&db, &body.contest_id, claims.id)
     );
     let contest = contest_result?;
     let play_tracker = play_tracker_result?;
-    if play_tracker.status == PlayTrackerStatus::INIT && contest.entry_fee > 0 {
+    if play_tracker.status == PlayTrackerStatus::INIT && contest.props.entry_fee > 0 {
         let err = "contest not paid yet";
         let err = AppError::BadRequestErr(err.into());
         return Err(err);
     }
-    let play_tracker = update_play_tracker(&db, &contest_id, claims.id, &play_tracker).await?;
+    let play_tracker = update_play_tracker(&db, &body.contest_id, claims.id, &play_tracker).await?;
     let question = get_question(&contest, &play_tracker)?;
-    let res = Response {
+    let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
-        question,
+        question: Some(question),
     };
 
     Ok(Json(res))
 }
 
+/// get next question of a play tracker
+#[utoipa::path(
+    post,
+    path = "/api/v1/playTracker/getNextQues",
+    params(ContestIdRequest, ("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "get next question", body = PlayTrackerQuesRes),
+        (status = StatusCode::UNAUTHORIZED, description = "Unauthorized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn get_next_ques_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Query(params): Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    Query(params): Query<ContestIdRequest>,
+) -> Result<Json<PlayTrackerQuesRes>, AppError> {
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
-        check_play_tracker(&db, &contest_id, claims.id)
+        check_play_tracker(&db, &params.contest_id, claims.id)
     );
     let contest = contest_result?;
     let play_tracker = play_tracker_result?;
     let question = get_question(&contest, &play_tracker)?;
-    let res = Response {
+    let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
-        question,
+        question: Some(question),
     };
 
     Ok(Json(res))
 }
 
-fn get_question(
-    contest: &PlayTrackerContest,
+pub fn get_question(
+    contest: &ContestWithQuestion,
     play_tracker: &PlayTracker,
-) -> Result<Question, AppError> {
+) -> Result<QuestionWithoutCorrectFlag, AppError> {
     let answered_questions = play_tracker
         .answers
         .as_ref()
         .and_then(|ans| {
             Some(
                 ans.iter()
-                    .map(|q| q.question.question_no)
+                    .map(|q| q.question.props.question_no)
                     .collect::<Vec<u32>>(),
             )
         })
@@ -112,8 +116,11 @@ fn get_question(
         .filter(|q| q.is_active)
         .collect::<Vec<_>>();
     let total_question = all_questions.len();
-    let is_answered =
-        |q: &&Question| -> bool { answered_questions.iter().any(|&ans| ans == q.question_no) };
+    let is_answered = |q: &&Question| -> bool {
+        answered_questions
+            .iter()
+            .any(|&ans| ans == q.props.question_no)
+    };
     if answered_questions.len() == total_question || all_questions.iter().all(is_answered) {
         let err = "all questions answered already";
         let err = AppError::BadRequestErr(err.into());
@@ -126,15 +133,14 @@ fn get_question(
         .skip(random_start)
         .skip_while(is_answered)
         .take(1)
-        .cloned()
         .next()
         .ok_or(AppError::unknown_error())?;
-    Ok(question)
+    Ok(question.into())
 }
 
 pub async fn check_play_tracker(
     db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
+    contest_id: &str,
     user_id: u32,
 ) -> Result<PlayTracker, AppError> {
     let filter = doc! {
@@ -151,7 +157,7 @@ pub async fn check_play_tracker(
 
 async fn update_play_tracker(
     db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
+    contest_id: &str,
     user_id: u32,
     play_tracker: &PlayTracker,
 ) -> Result<PlayTracker, AppError> {

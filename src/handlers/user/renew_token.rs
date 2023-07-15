@@ -1,37 +1,31 @@
 use axum::{extract::State, Json};
 use mongodb::bson::{doc, Document};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use super::login::{update_user_login, verify_fb_token, verify_id_token};
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JWT_KEYS,
-    models::user::{LoginScheme, User},
+    models::*,
     utils::{get_epoch_ts, AppError},
 };
 
-use crate::database::AppDatabase;
+type RetType = Result<Json<LoginResponse>, AppError>;
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RenewTokenReqBody {
-    login_scheme: LoginScheme,
-    id_token: Option<String>,
-    fb_token: Option<String>,
-    refresh_token: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RenewTokenResp {
-    success: bool,
-    data: User,
-    token: String,
-    refresh_token: Option<String>,
-}
-
-type RetType = Result<Json<RenewTokenResp>, AppError>;
+/// Renew token
+///
+/// Renew token using refreshToken/idToken/fbToken
+#[utoipa::path(
+    post,
+    path = "/api/v1/user/renewToken",
+    request_body = RenewTokenReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Token renew successful", body = LoginResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn renew_token_handler(
     State(db): State<Arc<AppDatabase>>,
     Json(body): Json<RenewTokenReqBody>,
@@ -71,7 +65,7 @@ async fn renew_token_google(db: &Arc<AppDatabase>, id_token: &str) -> RetType {
     };
     let user = update_user_login(db, user.id, user.login_scheme).await?;
     let token = JWT_KEYS.generate_token(user.id, Some(user.name.to_owned()))?;
-    let res = RenewTokenResp {
+    let res = LoginResponse {
         success: true,
         data: user,
         token,
@@ -93,7 +87,7 @@ async fn renew_token_fb(db: &Arc<AppDatabase>, fb_token: &str) -> RetType {
     };
     let user = update_user_login(db, user.id, user.login_scheme).await?;
     let token = JWT_KEYS.generate_token(user.id, Some(user.name.to_owned()))?;
-    let res = RenewTokenResp {
+    let res = LoginResponse {
         success: true,
         data: user,
         token,
@@ -130,7 +124,7 @@ async fn renew_token_otp(db: &Arc<AppDatabase>, refresh_token: &str) -> RetType 
         .await?;
     let token = JWT_KEYS.generate_token(user_id, Some(user.name.to_owned()))?;
     let refresh_token = JWT_KEYS.generate_refresh_token(user_id, None)?;
-    let res = RenewTokenResp {
+    let res = LoginResponse {
         success: true,
         data: user,
         token,

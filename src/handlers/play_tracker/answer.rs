@@ -1,51 +1,42 @@
 use axum::{extract::State, Json};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use validator::Validate;
 
+use super::start::get_question;
 use crate::{
     constants::*,
+    database::AppDatabase,
+    handlers::play_tracker::get::validate_contest,
     jwt::JwtClaims,
-    models::{
-        contest::{ContestStatus, QuestionContest},
-        play_tracker::{GivenAnswer, PlayTracker, PlayTrackerStatus, Question},
-    },
-    utils::{get_epoch_ts, get_random_num, parse_object_id, AppError, ValidatedBody},
+    models::*,
+    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Deserialize, Serialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    #[validate(length(min = 1))]
-    contest_id: String,
-    #[validate(range(min = 1))]
-    question_no: u32,
-    #[validate(range(min = 1, max = 4))]
-    selected_option_id: u32,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: PlayTracker,
-    question: Option<Question>,
-}
-
+/// answer play tracker
+#[utoipa::path(
+    post,
+    path = "/api/v1/playTracker/answer",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = AnswerPlayTrackerReqBody,
+    responses(
+        (status = StatusCode::OK, description = "answer PlayTracker", body = PlayTrackerQuesRes),
+        (status = StatusCode::UNAUTHORIZED, description = "Unauthorized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn answer_play_tracker_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(body): ValidatedBody<ReqBody>,
-) -> Result<Json<Response>, AppError> {
+    ValidatedBody(body): ValidatedBody<AnswerPlayTrackerReqBody>,
+) -> Result<Json<PlayTrackerQuesRes>, AppError> {
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
-        check_play_tracker(&db, &contest_id, claims.id)
+        check_play_tracker(&db, &body.contest_id, claims.id)
     );
     let contest = contest_result?;
     let play_tracker = play_tracker_result?;
@@ -53,15 +44,15 @@ pub async fn answer_play_tracker_handler(
     let is_finished = check_if_finished(&contest, &play_tracker)?;
     let play_tracker = update_play_tracker(
         &db,
-        &contest_id,
+        &body.contest_id,
         claims.id,
         is_correct,
         is_finished,
         &given_answer,
     )
     .await?;
-    let question = get_question(&contest, &play_tracker, is_finished)?;
-    let res = Response {
+    let question = get_question_not_finished(&contest, &play_tracker, is_finished)?;
+    let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
         question,
@@ -70,27 +61,9 @@ pub async fn answer_play_tracker_handler(
     Ok(Json(res))
 }
 
-async fn validate_contest(
+pub async fn check_play_tracker(
     db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
-) -> Result<QuestionContest, AppError> {
-    let ts = get_epoch_ts() as i64;
-    let filter = doc! {
-        "_id": contest_id,
-        "status": ContestStatus::ACTIVE.to_bson()?,
-        "startTime": {"$lt": ts },
-        "endTime": {"$gt": ts}
-    };
-    let contest = db
-        .find_one::<QuestionContest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
-        .await?
-        .ok_or(AppError::NotFound("contest not found".into()))?;
-    Ok(contest)
-}
-
-async fn check_play_tracker(
-    db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
+    contest_id: &str,
     user_id: u32,
 ) -> Result<PlayTracker, AppError> {
     let filter = doc! {
@@ -106,22 +79,22 @@ async fn check_play_tracker(
 }
 
 fn check_if_correct(
-    contest: &QuestionContest,
-    body: &ReqBody,
-) -> Result<(GivenAnswer, bool), AppError> {
+    contest: &ContestWithQuestion,
+    body: &AnswerPlayTrackerReqBody,
+) -> Result<(ChosenAnswer, bool), AppError> {
     let questions = contest
         .questions
         .as_ref()
         .ok_or(AppError::BadRequestErr("questions not found".into()))?;
     let question = questions
         .into_iter()
-        .find(|q| q.question_no == body.question_no)
+        .find(|q| q.props.question_no == body.question_no)
         .ok_or(AppError::BadRequestErr("Invalid questionNo".into()))?;
     let is_correct = question
         .options
         .iter()
-        .any(|opt| opt.option_id == body.selected_option_id);
-    let answer = GivenAnswer {
+        .any(|opt| opt.props.option_id == body.selected_option_id && opt.is_correct);
+    let answer = ChosenAnswer {
         question: question.clone(),
         selected_option_id: body.selected_option_id,
     };
@@ -129,7 +102,7 @@ fn check_if_correct(
 }
 
 fn check_if_finished(
-    contest: &QuestionContest,
+    contest: &ContestWithQuestion,
     play_tracker: &PlayTracker,
 ) -> Result<bool, AppError> {
     let questions = contest
@@ -141,7 +114,7 @@ fn check_if_finished(
     let is_finished = questions.into_iter().all(|q| {
         answers
             .into_iter()
-            .any(|ans| ans.question.question_no == q.question_no)
+            .any(|ans| ans.question.props.question_no == q.props.question_no)
     });
 
     Ok(is_finished)
@@ -149,11 +122,11 @@ fn check_if_finished(
 
 async fn update_play_tracker(
     db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
+    contest_id: &str,
     user_id: u32,
     is_correct: bool,
     is_finished: bool,
-    answer: &GivenAnswer,
+    answer: &ChosenAnswer,
 ) -> Result<PlayTracker, AppError> {
     let score = if is_correct { 1 } else { 0u32 };
     let ts = get_epoch_ts() as i64;
@@ -189,50 +162,14 @@ async fn update_play_tracker(
     Ok(play_tracker)
 }
 
-fn get_question(
-    contest: &QuestionContest,
+fn get_question_not_finished(
+    contest: &ContestWithQuestion,
     play_tracker: &PlayTracker,
     is_finished: bool,
-) -> Result<Option<Question>, AppError> {
+) -> Result<Option<QuestionWithoutCorrectFlag>, AppError> {
     if is_finished {
         return Ok(None);
     }
-    let answered_questions = play_tracker
-        .answers
-        .as_ref()
-        .and_then(|ans| {
-            Some(
-                ans.iter()
-                    .map(|q| q.question.question_no)
-                    .collect::<Vec<u32>>(),
-            )
-        })
-        .unwrap_or(vec![]);
-    let all_questions = contest
-        .questions
-        .as_ref()
-        .ok_or(AppError::BadRequestErr("questions not found".into()))?;
-    let all_questions = all_questions
-        .into_iter()
-        .filter(|q| q.is_active)
-        .map(|q| q.into())
-        .collect::<Vec<Question>>();
-    let total_question = all_questions.len();
-    let is_answered =
-        |q: &Question| -> bool { answered_questions.iter().any(|&ans| ans == q.question_no) };
-    if answered_questions.len() == total_question || all_questions.iter().all(is_answered) {
-        let err = "all questions answered already";
-        let err = AppError::BadRequestErr(err.into());
-        return Err(err);
-    }
-    let random_start = get_random_num(0, total_question);
-    let question = all_questions
-        .into_iter()
-        .cycle()
-        .skip(random_start)
-        .skip_while(is_answered)
-        .take(1)
-        .next()
-        .ok_or(AppError::unknown_error())?;
+    let question = get_question(contest, play_tracker)?;
     Ok(Some(question))
 }

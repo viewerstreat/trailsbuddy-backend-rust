@@ -1,63 +1,39 @@
 use axum::{extract::State, Json};
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use validator::{Validate, ValidationError};
 
 use crate::{
     constants::*,
-    jwt::JwtClaims,
-    models::movie::{Movie, MovieRespData},
+    database::AppDatabase,
+    jwt::JwtClaimsAdmin,
+    models::*,
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-use crate::database::AppDatabase;
-
-fn validate_tags(tags: &Vec<String>) -> Result<(), ValidationError> {
-    if tags.iter().any(|tag| tag.is_empty()) {
-        let mut err = ValidationError::new("tags");
-        err.message = Some("empty tags are not allowed".into());
-        return Err(err);
-    }
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateMovieReqBody {
-    #[validate(length(min = 1, max = 100))]
-    name: String,
-    #[validate(length(min = 1))]
-    description: String,
-    #[validate(custom(function = "validate_tags"))]
-    tags: Option<Vec<String>>,
-    #[validate(url)]
-    banner_image_url: String,
-    #[validate(url)]
-    video_url: String,
-    #[validate(length(min = 1))]
-    sponsored_by: String,
-    #[validate(url)]
-    sponsored_by_logo: Option<String>,
-    release_date: u64,
-    release_outlets: Option<Vec<String>>,
-    movie_promotion_expiry: u64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: MovieRespData,
-}
-
+/// Movie create
+///
+/// Create a new movie
+#[utoipa::path(
+    post,
+    path = "/api/v1/movie",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    request_body = CreateMovieReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Movie created", body = MovieResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn create_movie_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateMovieReqBody>,
-) -> Result<Json<Response>, AppError> {
+) -> Result<Json<MovieResponse>, AppError> {
+    let claims = claims.data;
     check_duplicate_name(&db, &body.name).await?;
     let ts = get_epoch_ts();
-    let movie = Movie {
+    let movie_props = MovieProps {
         name: body.name,
         description: body.description,
         tags: body.tags,
@@ -65,12 +41,15 @@ pub async fn create_movie_handler(
         banner_image_url: body.banner_image_url,
         sponsored_by: Some(body.sponsored_by),
         sponsored_by_logo: body.sponsored_by_logo,
-        release_date: Some(body.release_date),
+        release_date: Some(body.release_date.timestamp() as u64),
         release_outlets: body.release_outlets,
-        movie_promotion_expiry: Some(body.movie_promotion_expiry),
+        movie_promotion_expiry: Some(body.movie_promotion_expiry.timestamp() as u64),
         is_active: true,
         likes: Some(vec![]),
         views: Some(vec![]),
+    };
+    let movie = Movie {
+        props: movie_props,
         created_by: Some(claims.id),
         created_ts: Some(ts),
         updated_by: None,
@@ -79,7 +58,7 @@ pub async fn create_movie_handler(
     let result = db
         .insert_one::<Movie>(DB_NAME, COLL_MOVIES, &movie, None)
         .await?;
-    let res = Response {
+    let res = MovieResponse {
         success: true,
         data: movie.to_movie_resp_data(&result),
     };

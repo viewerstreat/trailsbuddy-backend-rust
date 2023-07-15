@@ -14,6 +14,16 @@ fn uniq_file_name(file_name: &str) -> String {
     format!("{name}_{ts}_{random}.{ext}")
 }
 
+/// upload a file
+#[utoipa::path(
+    get,
+    path = "/api/v1/upload/single",
+    responses(
+        (status = StatusCode::OK, description = "upload successful"),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn upload_handler(mut files: Multipart) -> Result<Json<JsonValue>, AppError> {
     let config = aws_config::load_from_env().await;
     let client = aws_sdk_s3::Client::new(&config);
@@ -44,4 +54,37 @@ pub async fn upload_handler(mut files: Multipart) -> Result<Json<JsonValue>, App
     let url = get_object_url(&key);
     let res = json!({"success": true, "data": {"ETag": &e_tag, "url": &url}});
     Ok(Json(res))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_uniq_file_name() {
+        let fn1 = uniq_file_name("");
+        let fn2 = uniq_file_name("");
+        assert!(fn1.ends_with(".unknown"));
+        assert!(fn2.ends_with(".unknown"));
+        assert_ne!(fn1, fn2);
+        let fn1 = uniq_file_name("abcd");
+        let fn2 = uniq_file_name("abcd");
+        assert!(fn1.starts_with("abcd"));
+        assert!(fn2.starts_with("abcd"));
+        assert!(fn1.ends_with(".unknown"));
+        assert!(fn2.ends_with(".unknown"));
+        let fn1 = uniq_file_name("abcd.txt");
+        assert!(fn1.starts_with("abcd"));
+        assert!(fn1.ends_with(".txt"));
+        let fn1 = uniq_file_name("abcd.txt.zip");
+        let fn2 = uniq_file_name("abcd.txt.zip");
+        assert!(fn1.starts_with("abcd"));
+        assert!(fn1.ends_with(".zip"));
+        assert!(fn2.starts_with("abcd"));
+        assert!(fn2.ends_with(".zip"));
+        assert_ne!(fn1, fn2);
+        let fn1 = uniq_file_name("file with spaces.txt");
+        assert!(fn1.starts_with("file_with_spaces"));
+        assert!(fn1.ends_with(".txt"));
+    }
 }

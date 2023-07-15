@@ -72,6 +72,7 @@ impl PushPayload {
     }
 }
 
+/// This function send out a push message to a specific device by calling google API
 pub async fn send_push_message(
     msg: &str,
     device: &str,

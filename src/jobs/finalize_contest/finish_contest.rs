@@ -5,7 +5,10 @@ use mongodb::{
 };
 use std::{cmp::Ordering, sync::Arc};
 
-use super::{credit_prize::credit_prize_value, push_message::create_push_for_prize_win};
+use super::{
+    cancel_contest::cancel_contest, credit_prize::credit_prize_value,
+    push_message::create_push_for_prize_win,
+};
 use crate::{
     constants::*,
     database::AppDatabase,
@@ -31,30 +34,28 @@ pub async fn finish_contest(db: &Arc<AppDatabase>, contest: &Contest) {
         .await;
     if let Err(e) = result {
         tracing::debug!("Not able to finish contest: {:?}", e);
-        update_contest_error(db, contest).await;
+        let r = update_contest_error(db, contest).await;
+        if r.is_err() {
+            tracing::debug!("Error in update contest error => {:?}", r.err());
+        }
     }
 }
 
-async fn update_contest_error(db: &Arc<AppDatabase>, contest: &Contest) {
-    let Some(contest_id) = contest._id.as_ref() else {
-        tracing::debug!("contest_id not present: {:?}", contest);
-        return;
-    };
-    let Ok(oid) = parse_object_id(contest_id, "") else {
-        tracing::debug!("not able to parse contest_id");
-        return;
-    };
+async fn update_contest_error(db: &Arc<AppDatabase>, contest: &Contest) -> anyhow::Result<()> {
+    let contest_id = contest
+        ._id
+        .as_ref()
+        .ok_or(anyhow::anyhow!("contest_id not present"))?;
+    let oid = parse_object_id(contest_id, "")
+        .map_err(|_| anyhow::anyhow!("not able to parse contest_id"))?;
     let ts = get_epoch_ts() as i64;
     let filter = doc! {"_id": oid};
     let update = doc! {
         "$set": {"error": "not able to update contest in finish_contest", "updatedTs": ts}
     };
-    let r = db
-        .update_one(DB_NAME, COLL_CONTESTS, filter, update, None)
-        .await;
-    if let Err(e) = r {
-        tracing::debug!("Not able to update error in contest: {:?}", e);
-    }
+    db.update_one(DB_NAME, COLL_CONTESTS, filter, update, None)
+        .await?;
+    Ok(())
 }
 
 async fn update_contest(
@@ -67,16 +68,27 @@ async fn update_contest(
         .as_ref()
         .ok_or(anyhow::anyhow!("contest_id not present"))?;
     let prize_money = Money::new(
-        contest.prize_value_real_money as u64,
-        contest.prize_value_bonus_money as u64,
+        contest.props.prize_value_real_money as u64,
+        contest.props.prize_value_bonus_money as u64,
     );
     let all_play_trackers = get_all_play_trackers(db, session, contest_id).await?;
     let total_player = all_play_trackers.len() as u32;
+    let min_required_players = contest.props.min_required_players;
+    if total_player < min_required_players {
+        return cancel_contest(db, session, contest, &all_play_trackers).await;
+    }
     let winners_count = get_winners_count(contest, total_player);
     let winners = get_winners(&all_play_trackers, winners_count);
     for winner in winners.iter() {
         credit_prize_value(db, session, winner.user_id, prize_money, contest_id).await?;
-        create_push_for_prize_win(db, session, winner.user_id, &contest.title, prize_money).await?;
+        create_push_for_prize_win(
+            db,
+            session,
+            winner.user_id,
+            &contest.props.title,
+            prize_money,
+        )
+        .await?;
     }
     update_users(db, session, &all_play_trackers, &winners, prize_money).await?;
     update_play_trackers(db, session, contest_id).await?;
@@ -146,7 +158,7 @@ async fn get_all_play_trackers(
     Ok(play_trackers)
 }
 
-async fn update_play_trackers(
+pub async fn update_play_trackers(
     db: &AppDatabase,
     session: &mut ClientSession,
     contest_id: &str,
@@ -205,11 +217,11 @@ fn sort_play_tracker(a: &PlayTracker, b: &PlayTracker) -> Ordering {
 }
 
 fn get_winners_count(contest: &Contest, total_player: u32) -> u32 {
-    match contest.prize_selection {
-        PrizeSelection::TOP_WINNERS => contest.top_winners_count.unwrap_or_default(),
+    match contest.props.prize_selection {
+        PrizeSelection::TOP_WINNERS => contest.props.top_winners_count.unwrap_or_default(),
         PrizeSelection::RATIO_BASED => {
-            let numerator = contest.prize_ratio_numerator.unwrap_or_default();
-            let denominator = contest.prize_ratio_denominator.unwrap_or(1);
+            let numerator = contest.props.prize_ratio_numerator.unwrap_or_default();
+            let denominator = contest.props.prize_ratio_denominator.unwrap_or(1);
             (numerator * total_player) / denominator
         }
     }

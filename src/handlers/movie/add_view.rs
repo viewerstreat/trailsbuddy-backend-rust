@@ -1,60 +1,53 @@
 use axum::{extract::State, Json};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
-    models::{clip::ViewsEntry, movie::Movie},
-    utils::{get_epoch_ts, AppError},
+    models::*,
+    utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddViewReqBody {
-    movie_id: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Response {
-    success: bool,
-    message: String,
-    view_count: u32,
-}
-
+/// Add user view for movie
+#[utoipa::path(
+    post,
+    path = "/api/v1/movie/addView",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = MovieAddViewReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Successful", body = AddViewResponse),
+        (status = StatusCode::NOT_FOUND, description = "movie not found", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+        (status = StatusCode::UNAUTHORIZED, description = "Invalid token", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn add_movie_view_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<AddViewReqBody>,
-) -> Result<Json<Response>, AppError> {
+    Json(body): Json<MovieAddViewReqBody>,
+) -> Result<Json<AddViewResponse>, AppError> {
     let ts = get_epoch_ts();
     let view_entry = ViewsEntry {
         user_id: claims.id,
         updated_ts: Some(ts),
     };
-    let movie_id = ObjectId::parse_str(body.movie_id).map_err(|err| {
-        tracing::debug!("not able to parse movie_id: {:?}", err);
-        AppError::BadRequestErr("not able to parse movie_id".into())
-    })?;
+    let movie_id = parse_object_id(&body.movie_id, "not able to parse movie_id")?;
     let filter = Some(doc! {"_id": movie_id.clone()});
     let movie = db
         .find_one::<Movie>(DB_NAME, COLL_MOVIES, filter, None)
-        .await?;
-    let Some(movie) = movie else {
-        let err = AppError::NotFound("Movie not found".into());
-        return Err(err);
-    };
-    if let Some(views) = &movie.views {
+        .await?
+        .ok_or(AppError::NotFound("Movie not found".into()))?;
+    if let Some(views) = &movie.props.views {
         if views.iter().any(|v| v.user_id == claims.id) {
             let view_count = views.len() as u32;
-            let res = Response {
+            let res = AddViewResponse {
                 success: true,
                 message: "User already viewed".to_string(),
                 view_count,
@@ -72,11 +65,12 @@ pub async fn add_movie_view_handler(
         .await?
         .ok_or(anyhow::anyhow!("Not able to update any document"))?;
     let view_count = result
+        .props
         .views
         .and_then(|view| Some(view.len() as u32))
         .unwrap_or_default();
 
-    let res = Response {
+    let res = AddViewResponse {
         success: true,
         message: "Updated successfully".to_string(),
         view_count,

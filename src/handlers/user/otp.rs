@@ -1,49 +1,41 @@
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
-    models::user::User,
-    utils::{generate_otp, get_epoch_ts},
+    database::AppDatabase,
+    models::{otp::Otp, user::User, AdminUser},
+    utils::generate_otp,
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Otp {
-    pub user_id: u32,
-    pub otp: String,
-    pub valid_till: u64,
-    pub is_used: bool,
-    pub update_ts: u64,
+/// Get user details from database by user Id
+/// User must be active
+pub async fn get_user_by_id(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<Option<User>> {
+    let f = Some(doc! {"id": user_id, "isActive": true});
+    let user = db.find_one::<User>(DB_NAME, COLL_USERS, f, None).await?;
+    Ok(user)
 }
 
-impl Otp {
-    pub fn new(user_id: u32, otp: &str) -> Self {
-        let ts = get_epoch_ts();
-        Self {
-            user_id,
-            otp: otp.to_string(),
-            valid_till: ts + OTP_VALIDITY_MINS * 60,
-            is_used: false,
-            update_ts: ts,
-        }
-    }
-}
-
-// Generate and send otp
-pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<()> {
-    let f = Some(doc! {"id": user_id});
+pub async fn get_admin_user_by_id(
+    user_id: u32,
+    db: &Arc<AppDatabase>,
+) -> anyhow::Result<Option<AdminUser>> {
+    let f = Some(doc! {"id": user_id, "isActive": true});
     let user = db
-        .find_one::<User>(DB_NAME, COLL_USERS, f, None)
+        .find_one::<AdminUser>(DB_NAME, COLL_ADMIN_USERS, f, None)
+        .await?;
+    Ok(user)
+}
+
+/// Generate a random otp, save into the otp collection and send to user's phone
+pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<()> {
+    let user = get_user_by_id(user_id, db)
         .await?
         .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
     let Some(phone) = &user.phone else {
-            let err = anyhow::anyhow!("User phone not found");
-            return Err(err);
-        };
+        let err = anyhow::anyhow!("User phone not found");
+        return Err(err);
+    };
     let otp = generate_otp(OTP_LENGTH);
     let otp = Otp::new(user_id, otp.as_str());
     db.insert_one::<Otp>(DB_NAME, COLL_OTP, &otp, None).await?;
@@ -51,7 +43,19 @@ pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::R
     Ok(())
 }
 
-// send otp to a given phone. SMS gateway API or SMS queue API to be called from here
+/// Generate a random otp for admin, save into the otp collection and send to user's phone
+pub async fn generate_send_otp_admin(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::Result<()> {
+    let user = get_admin_user_by_id(user_id, db)
+        .await?
+        .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
+    let otp = generate_otp(OTP_LENGTH);
+    let otp = Otp::new(user_id, otp.as_str());
+    db.insert_one::<Otp>(DB_NAME, COLL_OTP, &otp, None).await?;
+    send_otp(&user.phone, &otp.otp);
+    Ok(())
+}
+
+/// send otp to a given phone. SMS gateway API or SMS queue API to be called from here
 pub fn send_otp(phone: &str, otp: &str) {
     tracing::debug!("Send otp {otp} to phone {phone}");
 }

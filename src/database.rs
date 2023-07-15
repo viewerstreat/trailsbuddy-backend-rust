@@ -5,16 +5,13 @@ use mongodb::{
     error::{Result as MongoResult, UNKNOWN_TRANSACTION_COMMIT_RESULT},
     options::{
         AggregateOptions, ClientOptions, DeleteOptions, FindOneAndUpdateOptions, FindOneOptions,
-        FindOptions, InsertOneOptions, SelectionCriteria, SessionOptions, TransactionOptions,
+        FindOptions, InsertOneOptions, SessionOptions, TransactionOptions, UpdateModifications,
         UpdateOptions,
     },
     Client, ClientSession,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
-
-#[cfg(test)]
-use mockall::automock;
 
 pub struct AppDatabase(pub Client);
 
@@ -25,7 +22,6 @@ pub struct UpdateResult {
     pub upserted_id: Option<String>,
 }
 
-#[cfg_attr(test, automock)]
 impl AppDatabase {
     pub async fn new() -> MongoResult<Self> {
         // get all database parameters from environment
@@ -200,15 +196,6 @@ impl AppDatabase {
         Ok(data)
     }
 
-    pub async fn run_command(
-        &self,
-        db: &str,
-        command: Document,
-        options: Option<SelectionCriteria>,
-    ) -> MongoResult<Document> {
-        self.0.database(db).run_command(command, options).await
-    }
-
     pub async fn execute_transaction<F>(
         &self,
         session_options: Option<SessionOptions>,
@@ -305,7 +292,7 @@ impl AppDatabase {
         db: &str,
         coll: &str,
         filter: Document,
-        update: Document,
+        update: impl Into<UpdateModifications>,
         options: Option<FindOneAndUpdateOptions>,
     ) -> MongoResult<Option<T>>
     where

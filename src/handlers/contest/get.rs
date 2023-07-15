@@ -6,49 +6,43 @@ use mongodb::{
     bson::{doc, Document},
     options::FindOptions,
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
-    models::contest::{Contest, ContestCategory, ContestStatus},
+    database::AppDatabase,
+    models::*,
     utils::{parse_object_id, AppError},
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    #[serde(rename = "_id")]
-    _id: Option<String>,
-    movie_id: Option<String>,
-    category: Option<ContestCategory>,
-    page_size: Option<u64>,
-    page_index: Option<u64>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: Vec<Contest>,
-}
-
+/// Get contest
+///
+/// Get list of contest
+#[utoipa::path(
+    get,
+    path = "/api/v1/contest",
+    params(GetContestParams),
+    responses(
+        (status = StatusCode::OK, description = "Contest list", body = GetContestResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn get_contest_handler(
     State(db): State<Arc<AppDatabase>>,
-    params: Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    params: Query<GetContestParams>,
+) -> Result<Json<GetContestResponse>, AppError> {
     let find_by = get_query(&params)?;
     let options = get_find_options(&params);
     let data = get_result(&db, find_by, options).await?;
-    let res = Response {
+    let res = GetContestResponse {
         success: true,
         data,
     };
     Ok(Json(res))
 }
 
-fn get_query(params: &Params) -> Result<Document, AppError> {
+fn get_query(params: &GetContestParams) -> Result<Document, AppError> {
     let mut find_by = doc! {};
     if let Some(id) = &params._id {
         let id = parse_object_id(id, "Not able to parse _id")?;
@@ -66,7 +60,7 @@ fn get_query(params: &Params) -> Result<Document, AppError> {
     Ok(find_by)
 }
 
-fn get_find_options(params: &Params) -> FindOptions {
+fn get_find_options(params: &GetContestParams) -> FindOptions {
     let page_index = params.page_index.unwrap_or(0);
     let page_size = params.page_size.unwrap_or(DEFAULT_QUERY_LIMIT);
     let skip = if params._id.is_none() {

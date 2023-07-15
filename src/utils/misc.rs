@@ -30,6 +30,41 @@ pub fn generate_otp(len: u32) -> String {
         .collect()
 }
 
+/// Generate referral_code for an user
+pub fn generate_referral_code(id: u32, name: &str) -> String {
+    let mut code = String::new();
+    // put first 3 chars from the name into the code
+    // if name does not contain 3 alphabetic char then random char is added
+    let mut chars = name.chars();
+    loop {
+        let ch = chars.next().unwrap_or_else(|| get_random_num('A', 'Z'));
+        if ch.is_ascii_alphabetic() {
+            code.push(ch.to_ascii_uppercase());
+        }
+        if code.len() >= 3 {
+            break;
+        }
+    }
+    // put  last 3 chars from id into the code
+    // avoid putting '0' into the code since it is confusing with 'O'
+    let id = id % 1000;
+    let id = id.to_string();
+    for ch in id.chars() {
+        if code.len() >= REFERRAL_CODE_LEN {
+            break;
+        }
+        if ch.is_ascii_digit() && ch != '0' {
+            code.push(ch);
+        }
+    }
+    // fill rest all characters with random digits
+    for _ in code.len()..REFERRAL_CODE_LEN {
+        code.push(char::from_digit(get_random_num(1, 10), 10).unwrap_or('0'));
+    }
+
+    code
+}
+
 /// Generate a random number in a given range
 /// panics if the lower bound is greater than the higher bound
 pub fn get_random_num<T>(low: T, high: T) -> T
@@ -134,5 +169,36 @@ mod tests {
         let otp1 = generate_otp(6);
         let otp2 = generate_otp(6);
         assert_ne!(otp1, otp2);
+    }
+
+    #[test]
+    fn test_generate_referral_code() {
+        let code = generate_referral_code(1, "");
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
+        let code = generate_referral_code(0, "");
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
+        let code = generate_referral_code(0, "Siba");
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
+        assert!(code.chars().all(|ch| ch != '0'));
+        let mut chars = code.chars();
+        assert_eq!(chars.next(), Some('S'));
+        assert_eq!(chars.next(), Some('I'));
+        assert_eq!(chars.next(), Some('B'));
+        let code = generate_referral_code(1, "Mr. Bachchan");
+        let mut chars = code.chars();
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
+        assert_eq!(chars.next(), Some('M'));
+        assert_eq!(chars.next(), Some('R'));
+        assert_eq!(chars.next(), Some('B'));
+        assert_eq!(chars.next(), Some('1'));
+        let code = generate_referral_code(14563, "Sibaprasad Maiti");
+        let mut chars = code.chars();
+        assert_eq!(code.len(), REFERRAL_CODE_LEN);
+        assert_eq!(chars.next(), Some('S'));
+        assert_eq!(chars.next(), Some('I'));
+        assert_eq!(chars.next(), Some('B'));
+        assert_eq!(chars.next(), Some('5'));
+        assert_eq!(chars.next(), Some('6'));
+        assert_eq!(chars.next(), Some('3'));
     }
 }

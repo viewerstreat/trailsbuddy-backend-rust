@@ -1,39 +1,50 @@
 use axum::{extract::State, Json};
 use mongodb::bson::{doc, Document};
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
-    jwt::JwtClaims,
-    models::contest::{Contest, ContestCategory, ContestStatus, PrizeSelection},
-    utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
+    database::AppDatabase,
+    jwt::JwtClaimsAdmin,
+    models::*,
+    utils::{parse_object_id, AppError, ValidatedBody},
 };
 
-use crate::database::AppDatabase;
-
+/// Contest create
+///
+/// Create a new contest
+#[utoipa::path(
+    post,
+    path = "/api/v1/contest",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestProps,
+    responses(
+        (status = StatusCode::OK, description = "Contest created", body = ContestResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn create_contest_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(mut body): ValidatedBody<Contest>,
-) -> Result<Json<JsonValue>, AppError> {
+    ValidatedBody(body): ValidatedBody<ContestProps>,
+) -> Result<Json<ContestResponse>, AppError> {
+    let claims = claims.data;
     validate_body(&db, &body).await?;
-    let ts = get_epoch_ts();
-    body.status = Some(ContestStatus::CREATED);
-    body.created_ts = Some(ts);
-    body.created_by = Some(claims.id);
-    body.updated_ts = None;
-    body.updated_by = None;
-    body._id = None;
+    let mut contest = Contest::new(&body, claims.id);
     let inserted_id = db
-        .insert_one::<Contest>(DB_NAME, COLL_CONTESTS, &body, None)
+        .insert_one::<Contest>(DB_NAME, COLL_CONTESTS, &contest, None)
         .await?;
-    body._id = Some(inserted_id);
-    let res = json!({"success": true, "data": &body});
+    contest._id = Some(inserted_id);
+    let res = ContestResponse {
+        success: true,
+        data: contest,
+    };
     Ok(Json(res))
 }
 
-async fn validate_body(db: &Arc<AppDatabase>, body: &Contest) -> Result<(), AppError> {
+async fn validate_body(db: &Arc<AppDatabase>, body: &ContestProps) -> Result<(), AppError> {
     let (duplicate_check, movie_id_check) = tokio::join!(
         check_duplicate_title(&db, &body.title),
         validate_movie_id(&db, &body)
@@ -50,7 +61,7 @@ async fn validate_body(db: &Arc<AppDatabase>, body: &Contest) -> Result<(), AppE
 async fn check_duplicate_title(db: &Arc<AppDatabase>, title: &str) -> Result<(), AppError> {
     let filter = doc! {"title": title};
     let result = db
-        .find_one::<Document>(DB_NAME, COLL_CONTESTS, Some(filter), None)
+        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter), None)
         .await?;
     if result.is_some() {
         let err = AppError::BadRequestErr("Duplicate contest title".into());
@@ -59,7 +70,7 @@ async fn check_duplicate_title(db: &Arc<AppDatabase>, title: &str) -> Result<(),
     Ok(())
 }
 
-async fn validate_movie_id(db: &Arc<AppDatabase>, body: &Contest) -> Result<(), AppError> {
+async fn validate_movie_id(db: &Arc<AppDatabase>, body: &ContestProps) -> Result<(), AppError> {
     match body.category {
         ContestCategory::Others => {
             if body.movie_id.is_some() {
@@ -84,7 +95,7 @@ async fn validate_movie_id(db: &Arc<AppDatabase>, body: &Contest) -> Result<(), 
     Ok(())
 }
 
-fn validate_entry_fee(body: &Contest) -> Result<(), AppError> {
+fn validate_entry_fee(body: &ContestProps) -> Result<(), AppError> {
     if body.entry_fee_max_bonus_money > body.entry_fee {
         let msg = "entryFeeMaxBonusMoney should be less than entryFee";
         return Err(AppError::BadRequestErr(msg.into()));
@@ -92,7 +103,7 @@ fn validate_entry_fee(body: &Contest) -> Result<(), AppError> {
     Ok(())
 }
 
-fn validate_prize_selection(body: &Contest) -> Result<(), AppError> {
+fn validate_prize_selection(body: &ContestProps) -> Result<(), AppError> {
     match body.prize_selection {
         PrizeSelection::TOP_WINNERS => {
             body.top_winners_count
@@ -119,7 +130,7 @@ fn validate_prize_selection(body: &Contest) -> Result<(), AppError> {
     Ok(())
 }
 
-fn validate_prize_value(body: &Contest) -> Result<(), AppError> {
+fn validate_prize_value(body: &ContestProps) -> Result<(), AppError> {
     if body.prize_value_real_money == 0 && body.prize_value_bonus_money == 0 {
         let msg = "prizeValueRealMoney & prizeValueBonusMoney both cannot be zero";
         let err = AppError::BadRequestErr(msg.into());
@@ -129,13 +140,7 @@ fn validate_prize_value(body: &Contest) -> Result<(), AppError> {
     Ok(())
 }
 
-fn validate_start_end_time(body: &Contest) -> Result<(), AppError> {
-    let ts = get_epoch_ts();
-    if body.start_time <= ts || body.end_time <= ts {
-        let msg = "startTime and endTime should be in future";
-        let err = AppError::BadRequestErr(msg.into());
-        return Err(err);
-    }
+fn validate_start_end_time(body: &ContestProps) -> Result<(), AppError> {
     if body.start_time >= body.end_time {
         let msg = "startTime should be less than endTime";
         let err = AppError::BadRequestErr(msg.into());

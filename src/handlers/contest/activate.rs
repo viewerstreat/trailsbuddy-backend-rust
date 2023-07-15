@@ -1,46 +1,38 @@
 use axum::{extract::State, Json};
-use mongodb::bson::doc;
-use mongodb::bson::serde_helpers::hex_string_as_object_id;
-use serde::Deserialize;
-use serde_json::{json, Value as JsonValue};
+use mongodb::bson::{doc, Document};
 use std::sync::Arc;
 
-use crate::models::contest::{ContestStatus, Question};
 use crate::{
     constants::*,
-    jwt::JwtClaims,
+    database::AppDatabase,
+    jwt::JwtClaimsAdmin,
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-use crate::database::AppDatabase;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Contest {
-    #[serde(deserialize_with = "hex_string_as_object_id::deserialize")]
-    #[serde(rename = "_id")]
-    _id: String,
-    start_time: u64,
-    end_time: u64,
-    status: ContestStatus,
-    questions: Option<Vec<Question>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    contest_id: String,
-}
-
+/// Activate contest
+#[utoipa::path(
+    post,
+    path = "/api/v1/contest/activate",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestIdRequest,
+    responses(
+        (status = StatusCode::OK, description = "Contest activated", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn activate_contest_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    Json(body): Json<ContestIdRequest>,
+) -> Result<Json<GenericResponse>, AppError> {
+    let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
     let contest = db
-        .find_one::<Contest>(DB_NAME, COLL_CONTESTS, Some(filter.clone()), None)
+        .find_one::<ContestWithQuestion>(DB_NAME, COLL_CONTESTS, Some(filter.clone()), None)
         .await?
         .ok_or(AppError::NotFound("contest not found".into()))?;
     if contest.status != ContestStatus::CREATED && contest.status != ContestStatus::INACTIVE {
@@ -48,8 +40,8 @@ pub async fn activate_contest_handler(
         let err = AppError::BadRequestErr(err.into());
         return Err(err);
     }
-    let ts = get_epoch_ts();
-    if contest.end_time <= ts {
+    let ts = get_epoch_ts() as i64;
+    if contest.props.end_time.timestamp() <= ts {
         let err = "contest is ended already";
         let err = AppError::BadRequestErr(err.into());
         return Err(err);
@@ -74,18 +66,33 @@ pub async fn activate_contest_handler(
             "updatedTs": ts as i64
         }
     };
-    db.update_one(DB_NAME, COLL_CONTESTS, filter, update, None)
-        .await?;
-
-    let res = json!({"success": true, "message": "Updated successfully"});
+    update_contest(&db, filter, update).await?;
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 
+/// Inactivate contest
+#[utoipa::path(
+    post,
+    path = "/api/v1/contest/inActivate",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestIdRequest,
+    responses(
+        (status = StatusCode::OK, description = "Contest inactivated", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn inactivate_contest_handler(
-    claims: JwtClaims,
+    claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    Json(body): Json<ContestIdRequest>,
+) -> Result<Json<GenericResponse>, AppError> {
+    let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};
     let contest = db
@@ -97,8 +104,8 @@ pub async fn inactivate_contest_handler(
         let err = AppError::BadRequestErr(err.into());
         return Err(err);
     }
-    let ts = get_epoch_ts();
-    if contest.start_time <= ts {
+    let ts = get_epoch_ts() as i64;
+    if contest.props.start_time.timestamp() <= ts {
         let err = "contest is started already";
         let err = AppError::BadRequestErr(err.into());
         return Err(err);
@@ -110,9 +117,20 @@ pub async fn inactivate_contest_handler(
             "updatedTs": ts as i64
         }
     };
-    db.update_one(DB_NAME, COLL_CONTESTS, filter, update, None)
-        .await?;
-
-    let res = json!({"success": true, "message": "Updated successfully"});
+    update_contest(&db, filter, update).await?;
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
+}
+
+async fn update_contest(
+    db: &Arc<AppDatabase>,
+    query: Document,
+    update: Document,
+) -> anyhow::Result<()> {
+    db.update_one(DB_NAME, COLL_CONTESTS, query, update, None)
+        .await?;
+    Ok(())
 }
