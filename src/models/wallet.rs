@@ -1,10 +1,11 @@
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use utoipa::ToSchema;
 
 use crate::{constants::*, utils::get_epoch_ts};
 
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub struct Money {
     #[serde(default)]
     real: u64,

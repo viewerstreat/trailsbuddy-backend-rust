@@ -1,9 +1,10 @@
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::utils::get_epoch_ts;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LikesEntry {
     pub user_id: u32,
@@ -12,7 +13,7 @@ pub struct LikesEntry {
     pub updated_ts: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ViewsEntry {
     pub user_id: u32,
@@ -48,7 +49,7 @@ impl From<ViewsEntry> for Bson {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipProps {
     pub name: String,
@@ -71,7 +72,7 @@ pub struct Clips {
     pub updated_ts: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipRespData {
     #[serde(rename = "_id")]
@@ -80,7 +81,7 @@ pub struct ClipRespData {
     pub props: ClipProps,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum MediaType {
     Clip,

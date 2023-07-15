@@ -1,11 +1,12 @@
 use chrono::prelude::*;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use super::wallet::Money;
 use crate::utils::get_epoch_ts;
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum LoginScheme {
     #[default]
@@ -24,7 +25,7 @@ impl From<LoginScheme> for Bson {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: u32,
@@ -109,8 +110,8 @@ impl SpecialReferralCode {
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all(serialize = "camelCase"))]
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct LeaderboardData {
     id: u32,
     name: String,
@@ -137,7 +138,7 @@ impl LeaderboardData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminUser {
     pub id: u32,

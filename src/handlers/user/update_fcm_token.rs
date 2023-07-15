@@ -1,30 +1,33 @@
 use axum::{extract::State, Json};
 use mongodb::bson::doc;
-use serde::Deserialize;
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use validator::Validate;
 
-use crate::database::AppDatabase;
 use crate::{
     constants::*,
+    database::AppDatabase,
     jwt::JwtClaims,
-    models::user::User,
+    models::*,
     utils::{get_epoch_ts, AppError, ValidatedBody},
 };
 
-#[derive(Debug, Deserialize, Validate)]
-pub struct ReqBody {
-    #[validate(length(min = 1))]
-    token: String,
-}
-
 /// Update fcmToken for an user
+#[utoipa::path(
+    post,
+    path = "/api/v1/user/updateFcmToken",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = FcmTokenReqBody,
+    responses(
+        (status = StatusCode::OK, description = "FCM token saved", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn update_fcm_token_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(body): ValidatedBody<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    ValidatedBody(body): ValidatedBody<FcmTokenReqBody>,
+) -> Result<Json<GenericResponse>, AppError> {
     let filter = doc! {"id": claims.id};
     let user = db
         .find_one::<User>(DB_NAME, COLL_USERS, Some(filter.clone()), None)
@@ -35,7 +38,10 @@ pub async fn update_fcm_token_handler(
             .iter()
             .any(|token| token.as_str() == body.token.as_str())
         {
-            let res = json!({"success": true, "message": "token already exists for user"});
+            let res = GenericResponse {
+                success: true,
+                message: "token already exists for user".to_owned(),
+            };
             return Ok(Json(res));
         }
     }
@@ -48,7 +54,9 @@ pub async fn update_fcm_token_handler(
         let err = anyhow::anyhow!("not able to update user");
         return Err(AppError::AnyError(err));
     }
-
-    let res = json!({"success": true, "message": "token saved successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "token saved successfully".to_owned(),
+    };
     Ok(Json(res))
 }

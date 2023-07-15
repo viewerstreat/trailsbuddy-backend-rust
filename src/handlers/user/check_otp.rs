@@ -1,47 +1,40 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
     Json,
 };
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use validator::Validate;
 
-use crate::database::AppDatabase;
 use crate::{
     constants::*,
+    database::AppDatabase,
+    handlers::user::login::update_user_login,
     jwt::JWT_KEYS,
-    models::user::{LoginScheme, User},
-    utils::{get_epoch_ts, validate_phonenumber, AppError},
+    models::*,
+    utils::{get_epoch_ts, AppError},
 };
 
-use super::login::update_user_login;
-
-#[derive(Debug, Deserialize, Validate)]
-pub struct CheckOtpReq {
-    #[validate(custom(function = "validate_phonenumber"))]
-    phone: String,
-    #[validate(length(equal = "OTP_LENGTH"))]
-    otp: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Response {
-    pub success: bool,
-    pub data: User,
-    pub token: String,
-    pub refresh_token: String,
-}
-
+/// Check user otp
+///
 /// Check if the provided otp is valid for the given phone
 /// and the valid user exists for the phone
 /// If yes then generate token and refreshToken and return success response
+#[utoipa::path(
+    get,
+    path = "/api/v1/user/checkOtp",
+    params(CheckOtpReq),
+    responses(
+        (status = StatusCode::OK, description = "Login successful", body = LoginResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+        (status = StatusCode::NOT_FOUND, description = "User not found", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn check_otp_handler(
     State(db): State<Arc<AppDatabase>>,
     params: Query<CheckOtpReq>,
-) -> Result<(StatusCode, Json<Response>), AppError> {
+) -> Result<Json<LoginResponse>, AppError> {
     params
         .validate()
         .map_err(|err| AppError::BadRequestErr(err.to_string()))?;
@@ -57,14 +50,14 @@ pub async fn check_otp_handler(
     let token = JWT_KEYS.generate_token(user.id, Some(user.name.to_owned()))?;
     let refresh_token = JWT_KEYS.generate_refresh_token(user.id, None)?;
 
-    let response = Response {
+    let response = LoginResponse {
         success: true,
         data: user,
         token,
-        refresh_token,
+        refresh_token: Some(refresh_token),
     };
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok(Json(response))
 }
 
 pub async fn check_and_update_otp(

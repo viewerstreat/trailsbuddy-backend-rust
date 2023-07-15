@@ -1,21 +1,35 @@
 use axum::{extract::State, Json};
 use mongodb::bson::{doc, Document};
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaimsAdmin,
-    models::contest::{Contest, ContestCategory, ContestProps, PrizeSelection},
+    models::*,
     utils::{parse_object_id, AppError, ValidatedBody},
 };
 
+/// Contest create
+///
+/// Create a new contest
+#[utoipa::path(
+    post,
+    path = "/api/v1/contest",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestProps,
+    responses(
+        (status = StatusCode::OK, description = "Contest created", body = ContestResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn create_contest_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ContestProps>,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<ContestResponse>, AppError> {
     let claims = claims.data;
     validate_body(&db, &body).await?;
     let mut contest = Contest::new(&body, claims.id);
@@ -23,7 +37,10 @@ pub async fn create_contest_handler(
         .insert_one::<Contest>(DB_NAME, COLL_CONTESTS, &contest, None)
         .await?;
     contest._id = Some(inserted_id);
-    let res = json!({"success": true, "data": &contest});
+    let res = ContestResponse {
+        success: true,
+        data: contest,
+    };
     Ok(Json(res))
 }
 

@@ -1,10 +1,11 @@
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 use crate::utils::{deserialize_helper, get_epoch_ts};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum NotificationType {
     PUSH_MESSAGE,
@@ -82,7 +83,7 @@ pub struct NotificationContent {
     pub content: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Notifications {
     #[serde(rename = "_id")]

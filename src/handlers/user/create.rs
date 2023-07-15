@@ -1,38 +1,14 @@
 use axum::{extract::State, http::StatusCode, Json};
 use mongodb::bson::{doc, Document};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use std::sync::Arc;
-use validator::Validate;
 
 use super::otp::generate_send_otp;
-use crate::database::AppDatabase;
 use crate::{
     constants::*,
-    models::{user::User, wallet::Money},
-    utils::{
-        generate_referral_code, get_epoch_ts, get_seq_nxt_val, validate_phonenumber, AppError,
-        ValidatedBody,
-    },
+    database::AppDatabase,
+    models::*,
+    utils::{generate_referral_code, get_epoch_ts, get_seq_nxt_val, AppError, ValidatedBody},
 };
-
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct CreateUserReq {
-    #[validate(length(min = 1, max = 50))]
-    name: String,
-
-    #[validate(custom(function = "validate_phonenumber"))]
-    phone: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[validate(email)]
-    email: Option<String>,
-
-    #[serde(rename = "profilePic")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[validate(url)]
-    profile_pic: Option<String>,
-}
 
 impl CreateUserReq {
     async fn create_user(&self, db: &Arc<AppDatabase>) -> anyhow::Result<User> {
@@ -54,10 +30,23 @@ impl CreateUserReq {
     }
 }
 
+/// User create
+///
+/// User signup for new user
+#[utoipa::path(
+    post,
+    path = "/api/v1/user/create",
+    request_body = CreateUserReq,
+    responses(
+        (status = StatusCode::CREATED, description = "User created successfully", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "App User API"
+)]
 pub async fn create_user_handler(
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<CreateUserReq>,
-) -> Result<(StatusCode, Json<Value>), AppError> {
+) -> Result<(StatusCode, Json<GenericResponse>), AppError> {
     // check if phone already exists in the DB
     check_uniq_phone(&db, body.phone.as_str()).await?;
     // check if email already exists in the DB
@@ -70,10 +59,11 @@ pub async fn create_user_handler(
     // generate and send otp to the phone
     generate_send_otp(user.id, &db).await?;
     // return successful response
-    let response = (
-        StatusCode::CREATED,
-        Json(json!({"success": true, "message": "User created"})),
-    );
+    let response = GenericResponse {
+        success: true,
+        message: "User created".to_string(),
+    };
+    let response = (StatusCode::CREATED, Json(response));
     Ok(response)
 }
 
@@ -234,32 +224,3 @@ mod tests {
         assert_eq!(res.is_ok(), true);
     }
 }
-
-// --------------------------------------------------------------------------
-// Tests
-// - empty object in request body -> 422 Unprocessable Entity
-// - request body wihout `name` field -> 422 Unprocessable Entity
-// - request body wihout `phone` field -> 422 Unprocessable Entity
-// - request body contains name & phone but name does not have any value -> 400
-// - request body contains name & phone but phone has alphabetic chars -> 400
-// - request body contains name & phone but phone does not have 10 chars -> 400
-// - request body has email field & email is not string type - 422
-// - request body has email field & email is in invalid format - 400
-// - request body has duplicate phone - 400
-// - request body has duplicate email - 400
-// - request body has profilePic field and in invalid format - 400
-// - successful creation following fields to checked
-//          - id field has a valid uniq interger from the sequence generator
-//          - name field has proper value
-//          - phone field has proper value
-//          - email field has proper value
-//          - profilePic field has proper value
-//          - loginScheme = "OTP_BASED"
-//          - isActive = true
-//          - hasUsedReferralCode = false
-//          - referralCode = <Some uniq 8 chars code>
-//          - totalPlayed = 0
-//          - contestWon = 0
-//          - totalEarning = real = 0, bonus = 0
-//          - otps collection have a new otp for the user
-// --------------------------------------------------------------------------

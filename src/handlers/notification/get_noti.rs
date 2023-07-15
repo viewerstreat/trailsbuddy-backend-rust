@@ -3,30 +3,21 @@ use axum::{
     Json,
 };
 use mongodb::{bson::doc, options::FindOptions};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{
-    constants::*,
-    database::AppDatabase,
-    jwt::JwtClaims,
-    models::notification::{NotificationType, Notifications},
-    utils::AppError,
-};
+use crate::{constants::*, database::AppDatabase, jwt::JwtClaims, models::*, utils::AppError};
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetNotiReq {
-    page_index: Option<u64>,
-    page_size: Option<u64>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct GetNotiResp {
-    success: bool,
-    data: Vec<Notifications>,
-}
-
+/// get notifications
+#[utoipa::path(
+    get,
+    path = "/api/v1/notification",
+    params(GetNotiReq, ("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "notification list", body = GetNotiResp),
+    ),
+    tag = "App User API"
+)]
 pub async fn get_noti_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,

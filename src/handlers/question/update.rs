@@ -3,23 +3,37 @@ use mongodb::{
     bson::{doc, Document},
     options::UpdateOptions,
 };
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
-use super::create::{validate_request, ReqBody};
+use super::create::validate_request;
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaimsAdmin,
-    models::contest::{ContestStatus, Question},
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
+/// Question update
+///
+/// Update a new question
+#[utoipa::path(
+    post,
+    path = "/api/v1/question/update",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    request_body = CreateQuesReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Question updated", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn update_question_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(body): ValidatedBody<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    ValidatedBody(body): ValidatedBody<CreateQuesReqBody>,
+) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     validate_request(&db, &body, &contest_id, false).await?;
@@ -40,7 +54,10 @@ pub async fn update_question_handler(
 
     let options = update_options_question(question.props.question_no);
     update_question(&db, filter, update, Some(options)).await?;
-    let res = json!({"success": true, "message": "updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 

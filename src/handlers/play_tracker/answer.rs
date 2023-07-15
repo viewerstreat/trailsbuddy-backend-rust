@@ -3,9 +3,7 @@ use mongodb::{
     bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use validator::Validate;
 
 use super::start::get_question;
 use crate::{
@@ -13,36 +11,28 @@ use crate::{
     database::AppDatabase,
     handlers::play_tracker::get::validate_contest,
     jwt::JwtClaims,
-    models::{
-        contest::ContestWithQuestion,
-        play_tracker::{ChosenAnswer, PlayTracker, PlayTrackerStatus, QuestionWithoutCorrectFlag},
-    },
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    #[validate(length(min = 1))]
-    contest_id: String,
-    #[validate(range(min = 1))]
-    question_no: u32,
-    #[validate(range(min = 1, max = 4))]
-    selected_option_id: u32,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: PlayTracker,
-    question: Option<QuestionWithoutCorrectFlag>,
-}
-
+/// answer play tracker
+#[utoipa::path(
+    post,
+    path = "/api/v1/playTracker/answer",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = AnswerPlayTrackerReqBody,
+    responses(
+        (status = StatusCode::OK, description = "answer PlayTracker", body = PlayTrackerQuesRes),
+        (status = StatusCode::UNAUTHORIZED, description = "Unauthorized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn answer_play_tracker_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(body): ValidatedBody<ReqBody>,
-) -> Result<Json<Response>, AppError> {
+    ValidatedBody(body): ValidatedBody<AnswerPlayTrackerReqBody>,
+) -> Result<Json<PlayTrackerQuesRes>, AppError> {
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
@@ -62,7 +52,7 @@ pub async fn answer_play_tracker_handler(
     )
     .await?;
     let question = get_question_not_finished(&contest, &play_tracker, is_finished)?;
-    let res = Response {
+    let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
         question,
@@ -90,7 +80,7 @@ pub async fn check_play_tracker(
 
 fn check_if_correct(
     contest: &ContestWithQuestion,
-    body: &ReqBody,
+    body: &AnswerPlayTrackerReqBody,
 ) -> Result<(ChosenAnswer, bool), AppError> {
     let questions = contest
         .questions

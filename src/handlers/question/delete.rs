@@ -1,32 +1,35 @@
 use axum::{extract::State, Json};
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use validator::Validate;
 
 use super::update::{update_options_question, update_question};
 use crate::{
     database::AppDatabase,
     jwt::JwtClaimsAdmin,
-    models::contest::ContestStatus,
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    #[validate(length(min = 1))]
-    contest_id: String,
-    #[validate(range(min = 1))]
-    question_no: u32,
-}
-
+/// Question delete
+///
+/// Delete a new question
+#[utoipa::path(
+    post,
+    path = "/api/v1/question/delete",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    request_body = QuesDelReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Question deleted", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn delete_question_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(body): ValidatedBody<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    ValidatedBody(body): ValidatedBody<QuesDelReqBody>,
+) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let ts = get_epoch_ts() as i64;
@@ -43,6 +46,9 @@ pub async fn delete_question_handler(
     let update = doc! {"$set": update};
     let options = update_options_question(body.question_no);
     update_question(&db, filter, update, Some(options)).await?;
-    let res = json!({"success": true, "message": "updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }

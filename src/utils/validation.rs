@@ -42,6 +42,16 @@ pub fn validate_future_timestamp(dt: &DateTime<Utc>) -> Result<(), ValidationErr
     Ok(())
 }
 
+/// custom validator function to check tags value
+pub fn validate_tags(tags: &Vec<String>) -> Result<(), ValidationError> {
+    if tags.iter().any(|tag| tag.is_empty()) {
+        let mut err = ValidationError::new("tags");
+        err.message = Some("empty tags are not allowed".into());
+        return Err(err);
+    }
+    Ok(())
+}
+
 pub struct ValidatedBody<T>(pub T);
 
 #[async_trait]

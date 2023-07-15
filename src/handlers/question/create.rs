@@ -1,33 +1,35 @@
 use axum::{extract::State, Json};
 use mongodb::bson::{doc, oid::ObjectId};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use validator::Validate;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaimsAdmin,
-    models::contest::{Answer, ContestStatus, ContestWithQuestion, Question, QuestionReqBody},
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError, ValidatedBody},
 };
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    #[validate(length(min = 1))]
-    pub contest_id: String,
-    #[serde(flatten)]
-    #[validate]
-    pub question: QuestionReqBody,
-}
-
+/// Question create
+///
+/// Create a new question
+#[utoipa::path(
+    post,
+    path = "/api/v1/question",
+    params(("authorization" = String, Header, description = "Admin JWT token")),
+    security(("authorization" = [])),
+    request_body = CreateQuesReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Contest created", body = GenericResponse),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
+    ),
+    tag = "Admin API"
+)]
 pub async fn create_question_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    ValidatedBody(body): ValidatedBody<ReqBody>,
-) -> Result<Json<JsonValue>, AppError> {
+    ValidatedBody(body): ValidatedBody<CreateQuesReqBody>,
+) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     validate_request(&db, &body, &contest_id, true).await?;
@@ -40,13 +42,16 @@ pub async fn create_question_handler(
     };
     db.update_one(DB_NAME, COLL_CONTESTS, filter, update, None)
         .await?;
-    let res = json!({"success": true, "message": "Inserted successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "Inserted successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 
 pub async fn validate_request(
     db: &Arc<AppDatabase>,
-    body: &ReqBody,
+    body: &CreateQuesReqBody,
     contest_id: &ObjectId,
     create_request: bool,
 ) -> Result<(), AppError> {
