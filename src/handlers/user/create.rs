@@ -128,6 +128,7 @@ pub async fn create_uniq_referral_code(
 #[cfg(test)]
 mod tests {
     use crate::utils::get_random_num;
+    use validator::Validate;
 
     use super::*;
 

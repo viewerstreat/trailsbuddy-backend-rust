@@ -7,8 +7,7 @@ use tower::ServiceExt;
 use trailsbuddy_backend_rust::{
     constants::*,
     database::AppDatabase,
-    handlers::user::check_otp::Response as CheckOtpResponse,
-    models::{otp::Otp, user::User},
+    models::{otp::Otp, user::User, LoginResponse},
     utils::get_epoch_ts,
 };
 
@@ -42,18 +41,18 @@ pub async fn verify_user(app: Router, phone: &str) {
     assert_eq!(response.message, "Otp generated".to_owned());
 }
 
-pub async fn check_otp(app: Router, phone: &str, otp: &str) -> CheckOtpResponse {
+pub async fn check_otp(app: Router, phone: &str, otp: &str) -> LoginResponse {
     let path = format!("/api/v1/user/checkOtp?phone={}&otp={}", phone, otp);
     let request = build_get_request(path.as_str(), None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
-    let response: CheckOtpResponse = serde_json::from_slice(&body).unwrap();
+    let response: LoginResponse = serde_json::from_slice(&body).unwrap();
     println!("{:?}", response);
     assert_eq!(response.success, true);
     assert_eq!(response.data.phone.as_ref().unwrap(), phone);
     assert_eq!(response.token.is_empty(), false);
-    assert_eq!(response.refresh_token.is_empty(), false);
+    assert_eq!(response.refresh_token.is_some(), true);
     response
 }
 
@@ -89,7 +88,7 @@ pub async fn create_user_and_get_token(
     phone: &str,
     name: &str,
     panic_if_exists: bool,
-) -> CheckOtpResponse {
+) -> LoginResponse {
     let user = get_user(db.clone(), phone).await;
     if panic_if_exists && user.is_some() {
         panic!("User already exists with phone: {}", phone);

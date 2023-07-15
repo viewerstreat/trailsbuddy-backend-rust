@@ -3,10 +3,11 @@ use axum::{body::Body, http::Request, routing::get, Router};
 use serde::Deserialize;
 use tower::ServiceExt; // for `oneshot` and `ready`
 
-use trailsbuddy_backend_rust::handlers::{
-    default::{default_route_handler, DefaultResponse},
-    global_404::global_404_handler,
-    ping::ping_handler,
+use trailsbuddy_backend_rust::{
+    handlers::{
+        default::default_route_handler, global_404::global_404_handler, ping::ping_handler,
+    },
+    models::GenericResponse,
 };
 
 #[tokio::test]
@@ -16,7 +17,7 @@ async fn test_default_route_handler() {
     let res = app.oneshot(req).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
-    let default_res: DefaultResponse = serde_json::from_slice(&body).unwrap();
+    let default_res: GenericResponse = serde_json::from_slice(&body).unwrap();
     assert_eq!(default_res.success, true);
     assert_eq!(default_res.message, "Server is running".to_owned());
 }

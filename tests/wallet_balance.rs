@@ -6,8 +6,7 @@ use hyper::StatusCode;
 use tower::ServiceExt;
 
 use trailsbuddy_backend_rust::{
-    app::build_app_routes, database::AppDatabase,
-    handlers::wallet::get_bal::Response as GetBalResponse, utils::get_epoch_ts,
+    app::build_app_routes, database::AppDatabase, models::GetBalResponse, utils::get_epoch_ts,
 };
 
 use crate::helper::{build_get_request, get_database, GenericResponse};
