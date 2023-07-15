@@ -17,7 +17,7 @@ use crate::{
 #[utoipa::path(
     get,
     path = "/api/v1/question",
-    params(ContestActivateReqBody, ("authorization" = String, Header, description = "Admin JWT token")),
+    params(ContestIdRequest, ("authorization" = String, Header, description = "Admin JWT token")),
     security(("authorization" = [])),
     responses(
         (status = StatusCode::OK, description = "question list", body = GetQuestionResponse),
@@ -28,7 +28,7 @@ use crate::{
 pub async fn get_question_handler(
     _claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    params: Query<ContestActivateReqBody>,
+    params: Query<ContestIdRequest>,
 ) -> Result<Json<GetQuestionResponse>, AppError> {
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let filter = doc! {"_id": contest_id};

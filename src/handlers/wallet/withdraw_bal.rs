@@ -1,10 +1,7 @@
 use axum::{extract::State, Json};
 use futures::FutureExt;
 use mongodb::bson::doc;
-use serde::Deserialize;
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use validator::Validate;
 
 use super::{
     add_bal::TRANSACTION_ID_PARSE_ERR,
@@ -14,31 +11,38 @@ use super::{
     },
 };
 use crate::{
-    constants::*,
     database::AppDatabase,
     handlers::wallet::helper::{get_user_balance, get_wallet_transaction},
     jwt::JwtClaims,
-    models::wallet::{Money, WalletTransaction, WalletTransactionStatus, WalltetTransactionType},
+    models::*,
     utils::{parse_object_id, AppError, ValidatedBody},
 };
 
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct WithdrawBalInitReq {
-    #[validate(range(min = "WITHDRAW_BAL_MIN_AMOUNT"))]
-    amount: u64,
-    #[validate(email)]
-    receiver_upi_id: String,
-}
-
+/// Withdraw balance initialize
+///
+/// Initialize withdraw balance transaction
+#[utoipa::path(
+    post,
+    path = "/api/v1/wallet/withdrawBalInit",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = WithdrawBalInitReq,
+    responses(
+        (status = StatusCode::OK, description = "Withdraw balance initialized", body = WithdrawInitRes),
+    ),
+    tag = "App User API"
+)]
 pub async fn withdraw_bal_init_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<WithdrawBalInitReq>,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<WithdrawInitRes>, AppError> {
     let transaction = validate_request(&db, claims.id, &body).await?;
     let transaction_id = insert_wallet_transaction(&db, &transaction).await?;
-    let res = json!({"success": true, "transactionId": &transaction_id});
+    let res = WithdrawInitRes {
+        success: true,
+        transaction_id,
+    };
     Ok(Json(res))
 }
 
@@ -92,30 +96,35 @@ async fn validate_request(
     Ok(transaction)
 }
 
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct WithdrawBalEndReq {
-    #[validate(range(min = "WITHDRAW_BAL_MIN_AMOUNT"))]
-    amount: u64,
-    transaction_id: String,
-    is_successful: bool,
-    error_reason: Option<String>,
-    tracking_id: Option<String>,
-}
-
+/// Withdraw balance finalize
+///
+/// Finalize withdraw balance transaction
+#[utoipa::path(
+    post,
+    path = "/api/v1/wallet/withdrawBalanceEnd",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = WithdrawBalEndReq,
+    responses(
+        (status = StatusCode::OK, description = "Withdraw balance finalized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn withdraw_bal_end_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<WithdrawBalEndReq>,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<GenericResponse>, AppError> {
     validate_end_request(&db, &body, claims.id).await?;
     if body.is_successful {
         handle_success_transaction(&db, &body, claims.id).await?;
     } else {
         handle_failed_transaction(&db, &body, claims.id).await?;
     }
-
-    let res = json!({"success": true, "message": "Updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 

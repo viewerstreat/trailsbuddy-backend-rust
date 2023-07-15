@@ -6,7 +6,6 @@ use mongodb::{
     bson::doc,
     options::{FindOneAndUpdateOptions, ReturnDocument},
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
@@ -14,37 +13,28 @@ use crate::{
     database::AppDatabase,
     handlers::play_tracker::get::validate_contest,
     jwt::JwtClaims,
-    models::{
-        contest::{ContestWithQuestion, Question},
-        play_tracker::{PlayTracker, PlayTrackerStatus, QuestionWithoutCorrectFlag},
-    },
+    models::*,
     utils::{get_epoch_ts, get_random_num, parse_object_id, AppError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    contest_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    contest_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: PlayTracker,
-    question: QuestionWithoutCorrectFlag,
-}
-
+/// start play tracker
+#[utoipa::path(
+    post,
+    path = "/api/v1/playTracker/start",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = ContestIdRequest,
+    responses(
+        (status = StatusCode::OK, description = "Start PlayTracker", body = PlayTrackerQuesRes),
+        (status = StatusCode::UNAUTHORIZED, description = "Unauthorized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn start_play_tracker_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<Response>, AppError> {
+    Json(body): Json<ContestIdRequest>,
+) -> Result<Json<PlayTrackerQuesRes>, AppError> {
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
@@ -59,20 +49,32 @@ pub async fn start_play_tracker_handler(
     }
     let play_tracker = update_play_tracker(&db, &body.contest_id, claims.id, &play_tracker).await?;
     let question = get_question(&contest, &play_tracker)?;
-    let res = Response {
+    let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
-        question,
+        question: Some(question),
     };
 
     Ok(Json(res))
 }
 
+/// get next question of a play tracker
+#[utoipa::path(
+    post,
+    path = "/api/v1/playTracker/getNextQues",
+    params(ContestIdRequest, ("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "get next question", body = PlayTrackerQuesRes),
+        (status = StatusCode::UNAUTHORIZED, description = "Unauthorized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn get_next_ques_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Query(params): Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    Query(params): Query<ContestIdRequest>,
+) -> Result<Json<PlayTrackerQuesRes>, AppError> {
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
@@ -81,10 +83,10 @@ pub async fn get_next_ques_handler(
     let contest = contest_result?;
     let play_tracker = play_tracker_result?;
     let question = get_question(&contest, &play_tracker)?;
-    let res = Response {
+    let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
-        question,
+        question: Some(question),
     };
 
     Ok(Json(res))

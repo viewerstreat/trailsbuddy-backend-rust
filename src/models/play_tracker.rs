@@ -1,5 +1,6 @@
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use super::{
     contest::{AnswerProps, Question, QuestionProps},
@@ -7,7 +8,7 @@ use super::{
 };
 use crate::utils::get_epoch_ts;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionWithoutCorrectFlag {
     #[serde(flatten)]
@@ -31,7 +32,7 @@ impl From<&Question> for QuestionWithoutCorrectFlag {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum PlayTrackerStatus {
     INIT,
@@ -48,7 +49,7 @@ impl PlayTrackerStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ChosenAnswer {
     #[serde(flatten)]
@@ -63,7 +64,7 @@ impl ChosenAnswer {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayTracker {
     pub user_id: u32,

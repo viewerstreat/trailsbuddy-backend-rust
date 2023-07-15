@@ -4,8 +4,8 @@ use serde_json::json;
 use utoipa::ToSchema;
 
 use super::{
-    AdminUser, ClipRespData, Contest, LeaderboardData, MovieDetails, MovieRespData, Notifications,
-    Question, User,
+    AdminUser, ClipRespData, Contest, LeaderboardData, Money, MovieDetails, MovieRespData,
+    Notifications, PlayTracker, Question, QuestionWithoutCorrectFlag, User,
 };
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -145,4 +145,50 @@ pub struct GetQuestionResponse {
 pub struct GetNotiResp {
     pub success: bool,
     pub data: Vec<Notifications>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct GetBalResponse {
+    success: bool,
+    balance: Money,
+}
+impl GetBalResponse {
+    pub fn new(balance: Money) -> Self {
+        Self {
+            success: true,
+            balance,
+        }
+    }
+}
+
+/// response schema for Add Balance Init
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddBalInitRes {
+    pub success: bool,
+    pub transaction_id: String,
+    pub app_upi_id: String,
+}
+
+/// response schema for withdraw init
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WithdrawInitRes {
+    pub success: bool,
+    pub transaction_id: String,
+}
+
+/// response schema for PlayTracker response
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PlayTrackerResponse {
+    pub success: bool,
+    pub data: PlayTracker,
+}
+
+/// response schema for play tracker start
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PlayTrackerQuesRes {
+    pub success: bool,
+    pub data: PlayTracker,
+    pub question: Option<QuestionWithoutCorrectFlag>,
 }

@@ -16,7 +16,7 @@ use crate::{
     path = "/api/v1/contest/activate",
     params(("authorization" = String, Header, description = "JWT token")),
     security(("authorization" = [])),
-    request_body = ContestActivateReqBody,
+    request_body = ContestIdRequest,
     responses(
         (status = StatusCode::OK, description = "Contest activated", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
@@ -26,7 +26,7 @@ use crate::{
 pub async fn activate_contest_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ContestActivateReqBody>,
+    Json(body): Json<ContestIdRequest>,
 ) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
@@ -80,7 +80,7 @@ pub async fn activate_contest_handler(
     path = "/api/v1/contest/inActivate",
     params(("authorization" = String, Header, description = "JWT token")),
     security(("authorization" = [])),
-    request_body = ContestActivateReqBody,
+    request_body = ContestIdRequest,
     responses(
         (status = StatusCode::OK, description = "Contest inactivated", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
@@ -90,7 +90,7 @@ pub async fn activate_contest_handler(
 pub async fn inactivate_contest_handler(
     claims: JwtClaimsAdmin,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ContestActivateReqBody>,
+    Json(body): Json<ContestIdRequest>,
 ) -> Result<Json<GenericResponse>, AppError> {
     let claims = claims.data;
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;

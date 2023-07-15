@@ -3,44 +3,40 @@ use axum::{
     Json,
 };
 use mongodb::bson::{doc, oid::ObjectId};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
     constants::*,
     database::AppDatabase,
     jwt::JwtClaims,
-    models::{
-        contest::{ContestStatus, ContestWithQuestion},
-        play_tracker::PlayTracker,
-    },
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Params {
-    contest_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Response {
-    success: bool,
-    data: PlayTracker,
-}
-
+/// get play tracker
+#[utoipa::path(
+    get,
+    path = "/api/v1/playTracker",
+    params(GetNotiReq, ("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    responses(
+        (status = StatusCode::OK, description = "Get PlayTracker", body = PlayTrackerResponse),
+        (status = StatusCode::UNAUTHORIZED, description = "Unauthorized", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn get_play_tracker_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    params: Query<Params>,
-) -> Result<Json<Response>, AppError> {
+    params: Query<ContestIdRequest>,
+) -> Result<Json<PlayTrackerResponse>, AppError> {
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
         check_play_tracker(&db, &contest_id, claims.id)
     );
     if let Some(play_tracker) = play_tracker_result? {
-        let res = Response {
+        let res = PlayTrackerResponse {
             success: true,
             data: play_tracker,
         };
@@ -48,7 +44,7 @@ pub async fn get_play_tracker_handler(
     }
     let _contest = contest_result?;
     let play_tracker = insert_new_play_tracker(claims.id, &params.contest_id, &db).await?;
-    let res = Response {
+    let res = PlayTrackerResponse {
         success: true,
         data: play_tracker,
     };

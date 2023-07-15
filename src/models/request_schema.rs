@@ -341,9 +341,10 @@ pub struct GetContestParams {
 }
 
 /// request schema for contest activate
-#[derive(Debug, Deserialize, ToSchema, IntoParams)]
+#[derive(Debug, Deserialize, Validate, ToSchema, IntoParams)]
 #[serde(rename_all = "camelCase")]
-pub struct ContestActivateReqBody {
+pub struct ContestIdRequest {
+    #[validate(length(min = 1))]
     pub contest_id: String,
 }
 
@@ -381,4 +382,64 @@ pub struct GetNotiReq {
 pub struct ClearNotiReq {
     #[validate(length(equal = 24))]
     pub _id: String,
+}
+
+/// request schema for Add Balanace Init request
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct AddBalInitReq {
+    #[validate(range(min = 1))]
+    pub amount: u64,
+}
+
+/// request schema for Add Balance Init request
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddBalEndReq {
+    #[validate(range(min = 1))]
+    pub amount: u64,
+    pub transaction_id: String,
+    pub is_successful: bool,
+    pub error_reason: Option<String>,
+    pub tracking_id: Option<String>,
+}
+
+/// request schema for Withdraw balance init request
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WithdrawBalInitReq {
+    #[validate(range(min = "WITHDRAW_BAL_MIN_AMOUNT"))]
+    pub amount: u64,
+    #[validate(email)]
+    pub receiver_upi_id: String,
+}
+
+/// request schema for Withdraw balance finalize
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WithdrawBalEndReq {
+    #[validate(range(min = "WITHDRAW_BAL_MIN_AMOUNT"))]
+    pub amount: u64,
+    pub transaction_id: String,
+    pub is_successful: bool,
+    pub error_reason: Option<String>,
+    pub tracking_id: Option<String>,
+}
+
+/// request schema for pay contest request
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PayContestReqBody {
+    pub contest_id: String,
+    pub bonus_money_amount: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AnswerPlayTrackerReqBody {
+    #[validate(length(min = 1))]
+    pub contest_id: String,
+    #[validate(range(min = 1))]
+    pub question_no: u32,
+    #[validate(range(min = 1, max = 4))]
+    pub selected_option_id: u32,
 }

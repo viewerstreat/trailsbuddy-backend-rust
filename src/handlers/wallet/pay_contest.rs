@@ -5,7 +5,6 @@ use mongodb::{
     options::{FindOneAndUpdateOptions, ReturnDocument},
     ClientSession,
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
@@ -16,33 +15,31 @@ use crate::{
         wallet::helper::{get_user_balance, update_wallet_with_session},
     },
     jwt::JwtClaims,
-    models::{
-        play_tracker::{PlayTracker, PlayTrackerStatus},
-        wallet::{Money, WalletTransaction},
-    },
+    models::*,
     utils::{get_epoch_ts, parse_object_id, AppError},
 };
 
 use super::helper::insert_wallet_transaction_session;
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReqBody {
-    contest_id: String,
-    bonus_money_amount: Option<u32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Response {
-    success: bool,
-    data: PlayTracker,
-}
-
+/// Pay contest
+///
+/// Pay contest and get PlayTracker
+#[utoipa::path(
+    post,
+    path = "/api/v1/wallet/payContest",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = PayContestReqBody,
+    responses(
+        (status = StatusCode::OK, description = "Pay contest successful", body = PlayTrackerResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn pay_contest_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
-    Json(body): Json<ReqBody>,
-) -> Result<Json<Response>, AppError> {
+    Json(body): Json<PayContestReqBody>,
+) -> Result<Json<PlayTrackerResponse>, AppError> {
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
@@ -120,7 +117,7 @@ pub async fn pay_contest_handler(
     })
     .await?;
     play_tracker.status = PlayTrackerStatus::PAID;
-    let res = Response {
+    let res = PlayTrackerResponse {
         success: true,
         data: play_tracker,
     };

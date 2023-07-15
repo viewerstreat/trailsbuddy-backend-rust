@@ -1,16 +1,13 @@
 use axum::{extract::State, Json};
 use futures::FutureExt;
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use validator::Validate;
 
 use crate::{
     database::AppDatabase,
     handlers::wallet::helper::{get_user_balance, get_wallet_transaction},
     jwt::JwtClaims,
-    models::wallet::{Money, WalletTransaction, WalletTransactionStatus, WalltetTransactionType},
+    models::*,
     utils::{parse_object_id, AppError, ValidatedBody},
 };
 
@@ -19,20 +16,20 @@ use super::helper::{
     updated_failed_transaction,
 };
 
-#[derive(Debug, Deserialize, Validate)]
-pub struct AddBalInitReq {
-    #[validate(range(min = 1))]
-    amount: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddBalInitRes {
-    success: bool,
-    transaction_id: String,
-    app_upi_id: String,
-}
-
+/// Add balance initialize
+///
+/// Initialize add balance transaction
+#[utoipa::path(
+    post,
+    path = "/api/v1/wallet/addBalanceInit",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = AddBalInitReq,
+    responses(
+        (status = StatusCode::OK, description = "Add balance initialized", body = AddBalInitRes),
+    ),
+    tag = "App User API"
+)]
 pub async fn add_bal_init_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
@@ -51,24 +48,27 @@ pub async fn add_bal_init_handler(
     Ok(Json(res))
 }
 
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct AddBalEndReq {
-    #[validate(range(min = 1))]
-    amount: u64,
-    transaction_id: String,
-    is_successful: bool,
-    error_reason: Option<String>,
-    tracking_id: Option<String>,
-}
-
 pub const TRANSACTION_ID_PARSE_ERR: &str = "Not able to parse transactionId value";
 
+/// Add balance finalize
+///
+/// Finalize add balance transaction
+#[utoipa::path(
+    post,
+    path = "/api/v1/wallet/addBalanceEnd",
+    params(("authorization" = String, Header, description = "JWT token")),
+    security(("authorization" = [])),
+    request_body = AddBalEndReq,
+    responses(
+        (status = StatusCode::OK, description = "Add balance successful", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn add_bal_end_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<AddBalEndReq>,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<GenericResponse>, AppError> {
     validate_transaction(&claims, &db, &body).await?;
     if body.is_successful {
         handle_success_transaction(&claims, &db, &body).await
@@ -81,7 +81,7 @@ async fn handle_success_transaction(
     claims: &JwtClaims,
     db: &Arc<AppDatabase>,
     body: &AddBalEndReq,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<GenericResponse>, AppError> {
     let transaction_id = parse_object_id(&body.transaction_id, TRANSACTION_ID_PARSE_ERR)?;
     let user_id = claims.id;
     db.execute_transaction(None, None, |db, session| {
@@ -103,7 +103,10 @@ async fn handle_success_transaction(
         .boxed()
     })
     .await?;
-    let res = json!({"success": true, "message": "Updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 
@@ -111,7 +114,7 @@ async fn handle_failed_transaction(
     claims: &JwtClaims,
     db: &Arc<AppDatabase>,
     body: &AddBalEndReq,
-) -> Result<Json<JsonValue>, AppError> {
+) -> Result<Json<GenericResponse>, AppError> {
     let transaction_id = parse_object_id(&body.transaction_id, TRANSACTION_ID_PARSE_ERR)?;
     updated_failed_transaction(
         db,
@@ -121,7 +124,10 @@ async fn handle_failed_transaction(
         &body.tracking_id,
     )
     .await?;
-    let res = json!({"success": true, "message": "Updated successfully"});
+    let res = GenericResponse {
+        success: true,
+        message: "Updated successfully".to_owned(),
+    };
     Ok(Json(res))
 }
 

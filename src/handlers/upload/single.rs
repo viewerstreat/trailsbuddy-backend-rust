@@ -14,6 +14,16 @@ fn uniq_file_name(file_name: &str) -> String {
     format!("{name}_{ts}_{random}.{ext}")
 }
 
+/// upload a file
+#[utoipa::path(
+    get,
+    path = "/api/v1/upload/single",
+    responses(
+        (status = StatusCode::OK, description = "upload successful"),
+        (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
+    ),
+    tag = "App User API"
+)]
 pub async fn upload_handler(mut files: Multipart) -> Result<Json<JsonValue>, AppError> {
     let config = aws_config::load_from_env().await;
     let client = aws_sdk_s3::Client::new(&config);
