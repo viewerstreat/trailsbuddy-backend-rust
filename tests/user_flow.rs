@@ -5,12 +5,13 @@ use tower::ServiceExt; // for `oneshot` and `ready`
 
 use crate::helper::{
     build_post_request, create_user, create_user_and_get_token, create_user_with_body,
-    get_database, GenericResponse,
+    get_database,
+    helper::{generate_uniq_phone, USER_FLOW_PREFIX},
 };
 use trailsbuddy_backend_rust::{
     app::build_app_routes,
     database::AppDatabase,
-    models::{user::LoginScheme, wallet::Money},
+    models::{user::LoginScheme, wallet::Money, GenericResponse},
     utils::get_epoch_ts,
 };
 
@@ -20,21 +21,21 @@ const CREATE_USER_PATH: &str = "/api/v1/user/create";
 
 async fn test_empty_body(app: Router) {
     let body = r#"{}"#;
-    let request = build_post_request(CREATE_USER_PATH, body);
+    let request = build_post_request(CREATE_USER_PATH, body, None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 async fn test_missing_phone(app: Router) {
     let body = r#"{"name": "", "email": "validemail@internet.com", "profilePic": "invalidurl"}"#;
-    let request = build_post_request(CREATE_USER_PATH, body);
+    let request = build_post_request(CREATE_USER_PATH, body, None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 async fn test_invalid_phone(app: Router) {
     let body = r#"{"name": "abcd", "phone": "1234"}"#;
-    let request = build_post_request(CREATE_USER_PATH, body);
+    let request = build_post_request(CREATE_USER_PATH, body, None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -46,7 +47,7 @@ async fn test_invalid_phone(app: Router) {
 
 async fn test_invalid_char_in_phone(app: Router) {
     let body = r#"{"name": "abcd", "phone": "1234O12341"}"#;
-    let request = build_post_request(CREATE_USER_PATH, body);
+    let request = build_post_request(CREATE_USER_PATH, body, None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -62,7 +63,7 @@ async fn test_duplicate_phone(app: Router, phone: &str) {
         phone
     );
     create_user(app.clone(), phone, "test_duplicate_phone").await;
-    let request = build_post_request(CREATE_USER_PATH, &body);
+    let request = build_post_request(CREATE_USER_PATH, &body, None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -84,7 +85,7 @@ async fn test_duplicate_email(app: Router, phone1: &str, phone2: &str) {
         phone2, &email
     );
     create_user_with_body(app.clone(), &body1).await;
-    let request = build_post_request(CREATE_USER_PATH, &body2);
+    let request = build_post_request(CREATE_USER_PATH, &body2, None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();
@@ -117,11 +118,10 @@ async fn test_successful_signup(app: Router, db: Arc<AppDatabase>, phone: &str) 
 
 #[tokio::test]
 async fn test_user_signup() {
-    let ts = get_epoch_ts();
-    let phone1 = format!("{}", ts);
-    let phone2 = format!("{}", ts + 1);
-    let phone3 = format!("{}", ts + 2);
-    let phone4 = format!("{}", ts + 3);
+    let phone1 = generate_uniq_phone(USER_FLOW_PREFIX);
+    let phone2 = generate_uniq_phone(USER_FLOW_PREFIX);
+    let phone3 = generate_uniq_phone(USER_FLOW_PREFIX);
+    let phone4 = generate_uniq_phone(USER_FLOW_PREFIX);
     let db_client = get_database().await;
     let db_client = Arc::new(db_client);
     let app = build_app_routes(db_client.clone());

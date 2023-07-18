@@ -1,5 +1,5 @@
- // @ts-ignore
-use treatviewerstest
+// @ts-ignore
+// use treatviewerstest
 db.users.dropIndexes();
 db.clips.dropIndexes();
 db.movies.dropIndexes();
@@ -38,4 +38,5 @@ db.notifications.createIndex({ "userId": 1 });
 db.notificationRequests.createIndex({ "userId": 1 });
 db.notificationRequests.createIndex({ "status": 1 });
 db.specialReferralCodes.createIndex({ "referralCode": 1 }, { "unique": true });
+db.adminUsers.createIndex({ "id": 1 }, { "unique": true });
 db.adminUsers.createIndex({ "phone": 1 }, { "unique": true });

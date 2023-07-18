@@ -290,4 +290,8 @@ impl WalletTransaction {
     pub fn balance_before(&self) -> Money {
         self.balance_before
     }
+
+    pub fn balance_after(&self) -> Option<Money> {
+        self.balance_after
+    }
 }

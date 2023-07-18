@@ -7,11 +7,11 @@ use tower::ServiceExt;
 use trailsbuddy_backend_rust::{
     constants::*,
     database::AppDatabase,
-    models::{otp::Otp, user::User, LoginResponse},
+    models::{otp::Otp, user::User, GenericResponse, LoginResponse},
     utils::get_epoch_ts,
 };
 
-use crate::helper::helper::{build_get_request, build_post_request, GenericResponse};
+use crate::helper::helper::{build_get_request, build_post_request};
 
 pub async fn create_user(app: Router, phone: &str, name: &str) {
     let body = format!("{{\"name\": \"{}\", \"phone\": \"{}\"}}", name, phone);
@@ -19,7 +19,7 @@ pub async fn create_user(app: Router, phone: &str, name: &str) {
 }
 
 pub async fn create_user_with_body(app: Router, body: &str) {
-    let request = build_post_request("/api/v1/user/create", &body);
+    let request = build_post_request("/api/v1/user/create", &body, None);
     let res = app.oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::CREATED);
     let body = hyper::body::to_bytes(res.into_body()).await.unwrap();

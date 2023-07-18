@@ -32,6 +32,7 @@ pub async fn generate_send_otp(user_id: u32, db: &Arc<AppDatabase>) -> anyhow::R
     let user = get_user_by_id(user_id, db)
         .await?
         .ok_or(anyhow::anyhow!("User not found with id: {user_id}"))?;
+    #[allow(unused_variables)]
     let Some(phone) = &user.phone else {
         let err = anyhow::anyhow!("User phone not found");
         return Err(err);

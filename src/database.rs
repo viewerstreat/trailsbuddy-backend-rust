@@ -13,7 +13,6 @@ use mongodb::{
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
 
-
 pub struct AppDatabase(pub Client);
 
 #[derive(Debug)]
@@ -27,6 +26,7 @@ impl AppDatabase {
     pub async fn new() -> MongoResult<Self> {
         // get all database parameters from environment
         // when not found in environemtn it should panic
+        // #[allow(unused_variables)]
         let uri = std::env::var("MONGODB_URI").expect("MONGODB_URI not found in .env file");
         let min_pool = std::env::var("MONGODB_MIN_POOL_SIZE").unwrap_or_default();
         let max_pool = std::env::var("MONGODB_MAX_POOL_SIZE").unwrap_or_default();
