@@ -50,6 +50,9 @@ pub struct User {
     pub has_used_referral_code: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub used_referral_code: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub referral_code: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -23,7 +23,7 @@ use crate::{
     security(("authorization" = [])),
     request_body = ReferralCodeReqBody,
     responses(
-        (status = StatusCode::OK, description = "User successfully redeems referral code", body = GenericResponse),
+        (status = StatusCode::OK, description = "User successfully redeems referral code", body = UpdateUserResponse),
         (status = StatusCode::NOT_FOUND, description = "User/referral code not found", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse),
         (status = StatusCode::UNAUTHORIZED, description = "Invalid token", body = GenericResponse)
@@ -34,8 +34,8 @@ pub async fn use_referral_code_handler(
     claims: JwtClaims,
     State(db): State<Arc<AppDatabase>>,
     ValidatedBody(body): ValidatedBody<ReferralCodeReqBody>,
-) -> Result<Json<GenericResponse>, AppError> {
-    let user = get_user_by_id(claims.id, &db)
+) -> Result<Json<UpdateUserResponse>, AppError> {
+    let mut user = get_user_by_id(claims.id, &db)
         .await?
         .ok_or(AppError::NotFound("user not found".into()))?;
     // check if user has already used referral code
@@ -70,9 +70,11 @@ pub async fn use_referral_code_handler(
             .ok_or(AppError::NotFound("Invalid referralCode".into()))?;
         add_referral_bonus(&db, claims.id, referrer.id, &body.referral_code).await?;
     }
-    let res = GenericResponse {
+    user.has_used_referral_code = Some(true);
+    user.used_referral_code = Some(body.referral_code);
+    let res = UpdateUserResponse {
         success: true,
-        message: "referral code used successfully!!".to_owned(),
+        data: user,
     };
     Ok(Json(res))
 }
