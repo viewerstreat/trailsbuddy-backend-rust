@@ -17,7 +17,7 @@ use crate::{
 #[utoipa::path(
     get,
     path = "/api/v1/playTracker",
-    params(GetNotiReq, ("authorization" = String, Header, description = "JWT token")),
+    params(ContestIdRequest, ("authorization" = String, Header, description = "JWT token")),
     security(("authorization" = [])),
     responses(
         (status = StatusCode::OK, description = "Get PlayTracker", body = PlayTrackerResponse),
@@ -33,7 +33,7 @@ pub async fn get_play_tracker_handler(
     let contest_id = parse_object_id(&params.contest_id, "Not able to parse contestId")?;
     let (contest_result, play_tracker_result) = tokio::join!(
         validate_contest(&db, &contest_id),
-        check_play_tracker(&db, &contest_id, claims.id)
+        check_play_tracker(&db, &params.contest_id, claims.id)
     );
     if let Some(play_tracker) = play_tracker_result? {
         let res = PlayTrackerResponse {
@@ -83,7 +83,7 @@ pub async fn validate_contest(
 
 pub async fn check_play_tracker(
     db: &Arc<AppDatabase>,
-    contest_id: &ObjectId,
+    contest_id: &str,
     user_id: u32,
 ) -> Result<Option<PlayTracker>, AppError> {
     let filter = doc! {"contestId": contest_id, "userId": user_id};
