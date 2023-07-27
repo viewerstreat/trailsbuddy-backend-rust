@@ -21,7 +21,7 @@ use crate::{
         (status = StatusCode::OK, description = "Contest activated", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
     ),
-    tag = "App User API"
+    tag = "Admin API"
 )]
 pub async fn activate_contest_handler(
     claims: JwtClaimsAdmin,
@@ -85,7 +85,7 @@ pub async fn activate_contest_handler(
         (status = StatusCode::OK, description = "Contest inactivated", body = GenericResponse),
         (status = StatusCode::BAD_REQUEST, description = "Bad request", body = GenericResponse)
     ),
-    tag = "App User API"
+    tag = "Admin API"
 )]
 pub async fn inactivate_contest_handler(
     claims: JwtClaimsAdmin,

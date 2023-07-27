@@ -11,7 +11,7 @@ use crate::{
     constants::*,
     database::AppDatabase,
     handlers::{
-        play_tracker::get::{insert_new_play_tracker, validate_contest},
+        play_tracker::get::{get_contest_id, insert_new_play_tracker, validate_contest},
         wallet::helper::{get_user_balance, update_wallet_with_session},
     },
     jwt::JwtClaims,
@@ -41,12 +41,8 @@ pub async fn pay_contest_handler(
     Json(body): Json<PayContestReqBody>,
 ) -> Result<Json<PlayTrackerResponse>, AppError> {
     let contest_id = parse_object_id(&body.contest_id, "Not able to parse contestId")?;
-    let (contest_result, play_tracker_result) = tokio::join!(
-        validate_contest(&db, &contest_id),
-        check_play_tracker(&db, &body.contest_id, claims.id)
-    );
-    let contest = contest_result?;
-    let mut play_tracker = play_tracker_result?;
+    let contest = validate_contest(&db, &contest_id).await?;
+    let mut play_tracker = check_play_tracker(&db, &contest, claims.id).await?;
     let bonus_money_amount = body.bonus_money_amount.unwrap_or_default();
     debug_assert!(contest.props.entry_fee_max_bonus_money <= contest.props.entry_fee);
     if bonus_money_amount > contest.props.entry_fee_max_bonus_money {
@@ -187,11 +183,12 @@ async fn update_play_tracker(
     Ok(play_tracker)
 }
 
-pub async fn check_play_tracker(
+async fn check_play_tracker(
     db: &Arc<AppDatabase>,
-    contest_id: &str,
+    contest: &ContestWithQuestion,
     user_id: u32,
 ) -> Result<PlayTracker, AppError> {
+    let contest_id = get_contest_id(contest)?;
     let filter = doc! {
         "contestId": contest_id,
         "userId": user_id,
@@ -200,7 +197,7 @@ pub async fn check_play_tracker(
         .find_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, Some(filter), None)
         .await?;
     let Some(play_tracker) = play_tracker else {
-        let play_tracker = insert_new_play_tracker(user_id, contest_id, db).await?;
+        let play_tracker = insert_new_play_tracker(user_id, contest, db).await?;
         return Ok(play_tracker);
     };
     if play_tracker.status == PlayTrackerStatus::PAID {

@@ -42,8 +42,8 @@ pub async fn get_play_tracker_handler(
         };
         return Ok(Json(res));
     }
-    let _contest = contest_result?;
-    let play_tracker = insert_new_play_tracker(claims.id, &params.contest_id, &db).await?;
+    let contest = contest_result?;
+    let play_tracker = insert_new_play_tracker(claims.id, &contest, &db).await?;
     let res = PlayTrackerResponse {
         success: true,
         data: play_tracker,
@@ -53,10 +53,20 @@ pub async fn get_play_tracker_handler(
 
 pub async fn insert_new_play_tracker(
     user_id: u32,
-    contest_id: &str,
+    contest: &ContestWithQuestion,
     db: &Arc<AppDatabase>,
 ) -> Result<PlayTracker, AppError> {
-    let play_tracker = PlayTracker::new(user_id, contest_id);
+    let contest_id = get_contest_id(contest)?;
+    let total_questions = contest
+        .questions
+        .as_ref()
+        .and_then(|q| Some(q.len() as u32))
+        .unwrap_or_default();
+    if total_questions == 0 {
+        let err = anyhow::anyhow!("total_questions must be greater than zero at this point");
+        return Err(err.into());
+    }
+    let play_tracker = PlayTracker::new(user_id, contest_id, total_questions);
     db.insert_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, &play_tracker, None)
         .await?;
     Ok(play_tracker)
@@ -81,7 +91,15 @@ pub async fn validate_contest(
     Ok(contest)
 }
 
-pub async fn check_play_tracker(
+pub fn get_contest_id(contest: &ContestWithQuestion) -> anyhow::Result<&str> {
+    let contest_id = contest
+        ._id
+        .as_ref()
+        .ok_or(anyhow::anyhow!("contest_id is not here"))?;
+    Ok(contest_id)
+}
+
+async fn check_play_tracker(
     db: &Arc<AppDatabase>,
     contest_id: &str,
     user_id: u32,

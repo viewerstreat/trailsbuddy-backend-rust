@@ -85,6 +85,8 @@ pub struct PlayTracker {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paid_amount: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_questions: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub answers: Option<Vec<ChosenAnswer>>,
@@ -103,7 +105,7 @@ pub struct PlayTracker {
 }
 
 impl PlayTracker {
-    pub fn new(user_id: u32, contest_id: &str) -> Self {
+    pub fn new(user_id: u32, contest_id: &str, total_questions: u32) -> Self {
         let ts = get_epoch_ts();
         Self {
             user_id,
@@ -116,6 +118,7 @@ impl PlayTracker {
             paid_ts: None,
             wallet_transaction_id: None,
             paid_amount: None,
+            total_questions: Some(total_questions),
             score: None,
             answers: None,
             time_taken: None,
