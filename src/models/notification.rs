@@ -77,10 +77,13 @@ impl NotificationReq {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationContent {
     pub content: String,
+    pub event_name: String,
+    pub created_by: Option<u32>,
+    pub created_ts: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

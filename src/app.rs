@@ -68,7 +68,8 @@ pub fn build_app_routes(db_client: Arc<AppDatabase>) -> Router {
         .route("/clear", post(clear_noti_handler))
         .route("/clearall", post(clear_all_noti_handler))
         .route("/markRead", post(mark_read_noti_handler))
-        .route("/markAllRead", post(mark_all_read_noti_handler));
+        .route("/markAllRead", post(mark_all_read_noti_handler))
+        .route("/createBroadcast", post(create_broadcast_noti_handler));
     let upload_route = Router::new()
         .route("/single", post(upload_handler))
         .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT));

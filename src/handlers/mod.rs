@@ -37,6 +37,7 @@ pub use movie::liked_by_me::is_liked_by_me_handler;
 
 pub use notification::clear_noti::clear_all_noti_handler;
 pub use notification::clear_noti::clear_noti_handler;
+pub use notification::create_broadcast_noti::create_broadcast_noti_handler;
 pub use notification::get_noti::get_noti_handler;
 pub use notification::mark_read::mark_all_read_noti_handler;
 pub use notification::mark_read::mark_read_noti_handler;

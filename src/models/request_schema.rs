@@ -443,3 +443,10 @@ pub struct AnswerPlayTrackerReqBody {
     #[validate(range(min = 1, max = 4))]
     pub selected_option_id: u32,
 }
+
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBroadcastReq {
+    #[validate(length(min = 1))]
+    pub message: String,
+}

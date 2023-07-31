@@ -46,6 +46,7 @@ use utoipa::{
         crate::handlers::notification::clear_noti::clear_all_noti_handler,
         crate::handlers::notification::mark_read::mark_read_noti_handler,
         crate::handlers::notification::mark_read::mark_all_read_noti_handler,
+        crate::handlers::notification::create_broadcast_noti::create_broadcast_noti_handler,
         crate::handlers::upload::single::upload_handler,
         crate::handlers::wallet::get_bal::get_bal_handler,
         crate::handlers::wallet::add_bal::add_bal_init_handler,
@@ -88,6 +89,7 @@ use utoipa::{
             crate::models::WithdrawBalEndReq,
             crate::models::PayContestReqBody,
             crate::models::AnswerPlayTrackerReqBody,
+            crate::models::CreateBroadcastReq,
 
             crate::models::GenericResponse,
             crate::models::LoginResponse,

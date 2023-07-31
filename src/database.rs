@@ -3,11 +3,7 @@ use futures::{future::BoxFuture, stream::StreamExt};
 use mongodb::{
     bson::{Bson, Document},
     error::{Result as MongoResult, UNKNOWN_TRANSACTION_COMMIT_RESULT},
-    options::{
-        AggregateOptions, ClientOptions, DeleteOptions, FindOneAndUpdateOptions, FindOneOptions,
-        FindOptions, InsertOneOptions, SessionOptions, TransactionOptions, UpdateModifications,
-        UpdateOptions,
-    },
+    options::*,
     Client, ClientSession,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -110,6 +106,28 @@ impl AppDatabase {
         tracing::debug!("Invalid insert_one result: {:?}", result);
         let err = anyhow::anyhow!("Not able to get the ObjectId value in string format");
         Err(err)
+    }
+
+    pub async fn insert_many<T>(
+        &self,
+        db: &str,
+        coll: &str,
+        doc: &Vec<T>,
+        options: Option<InsertManyOptions>,
+    ) -> anyhow::Result<Vec<String>>
+    where
+        T: Serialize + 'static,
+    {
+        let collection = self.0.database(db).collection::<T>(coll);
+        let result = collection.insert_many(doc, options).await?;
+        Ok(result
+            .inserted_ids
+            .into_iter()
+            .map(|(_, id)| match id {
+                Bson::ObjectId(oid) => oid.to_hex(),
+                _ => String::new(),
+            })
+            .collect())
     }
 
     pub async fn update_one(
