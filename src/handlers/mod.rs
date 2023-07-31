@@ -58,6 +58,9 @@ pub use question::update::update_question_handler;
 pub use temp_api::temp_api_get_otp;
 pub use temp_api::temp_api_get_token;
 
+pub use upload::multipart::complete_multipart_handler;
+pub use upload::multipart::create_multipart_handler;
+pub use upload::multipart::upload_part_multipart_handler;
 pub use upload::single::upload_handler;
 
 pub use user::admin_login::admin_generate_otp;

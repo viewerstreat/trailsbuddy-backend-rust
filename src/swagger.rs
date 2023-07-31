@@ -48,6 +48,9 @@ use utoipa::{
         crate::handlers::notification::mark_read::mark_all_read_noti_handler,
         crate::handlers::notification::create_broadcast_noti::create_broadcast_noti_handler,
         crate::handlers::upload::single::upload_handler,
+        crate::handlers::upload::multipart::create_multipart_handler,
+        crate::handlers::upload::multipart::upload_part_multipart_handler,
+        crate::handlers::upload::multipart::complete_multipart_handler,
         crate::handlers::wallet::get_bal::get_bal_handler,
         crate::handlers::wallet::add_bal::add_bal_init_handler,
         crate::handlers::wallet::add_bal::add_bal_end_handler,
@@ -90,6 +93,7 @@ use utoipa::{
             crate::models::PayContestReqBody,
             crate::models::AnswerPlayTrackerReqBody,
             crate::models::CreateBroadcastReq,
+            crate::models::CompleteMultipartUploadReq,
 
             crate::models::GenericResponse,
             crate::models::LoginResponse,
@@ -111,6 +115,10 @@ use utoipa::{
             crate::models::WithdrawInitRes,
             crate::models::PlayTrackerResponse,
             crate::models::PlayTrackerQuesRes,
+            crate::models::MultipartUploadInitiateRes,
+            crate::models::FileUploadRes,
+            crate::models::UploadPartRes,
+            crate::models::UploadPartCompleted,
 
             crate::models::User,
             crate::models::AdminUser,

@@ -5,7 +5,7 @@ use utoipa::ToSchema;
 
 use super::{
     AdminUser, ClipRespData, Contest, LeaderboardData, Money, MovieDetails, MovieRespData,
-    Notifications, PlayTracker, Question, QuestionWithoutCorrectFlag, User,
+    Notifications, PlayTracker, Question, QuestionWithoutCorrectFlag, UploadPartCompleted, User,
 };
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -191,4 +191,31 @@ pub struct PlayTrackerQuesRes {
     pub success: bool,
     pub data: PlayTracker,
     pub question: Option<QuestionWithoutCorrectFlag>,
+}
+
+/// response schema for multipart upload initiate
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MultipartUploadInitiateRes {
+    pub success: bool,
+    pub key: String,
+    pub upload_id: String,
+}
+
+/// response schema for upload part
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadPartRes {
+    pub success: bool,
+    pub completed_part: UploadPartCompleted,
+    pub message: Option<String>,
+}
+
+/// response schema for file upload
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FileUploadRes {
+    pub success: bool,
+    pub e_tag: String,
+    pub url: String,
 }

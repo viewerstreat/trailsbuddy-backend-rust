@@ -72,7 +72,10 @@ pub fn build_app_routes(db_client: Arc<AppDatabase>) -> Router {
         .route("/createBroadcast", post(create_broadcast_noti_handler));
     let upload_route = Router::new()
         .route("/single", post(upload_handler))
-        .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT));
+        .route("/multipart/uploadPart", post(upload_part_multipart_handler))
+        .layer(DefaultBodyLimit::max(MULTIPART_BODY_LIMIT))
+        .route("/multipart/initiate", get(create_multipart_handler))
+        .route("/multipart/finish", post(complete_multipart_handler));
     let wallet_route = Router::new()
         .route("/getBalance", get(get_bal_handler))
         .route("/addBalanceInit", post(add_bal_init_handler))

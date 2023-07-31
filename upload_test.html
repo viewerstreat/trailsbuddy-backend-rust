@@ -1,0 +1,87 @@
+<html>
+  <head>
+    <title>Upload file code example</title>
+  </head>
+
+  <body>
+    <h1>Upload file code example</h1>
+    <div>
+      <h4>Single Upload</h4>
+      <div>
+        <input name="single-upload" type="file" id="single" />
+      </div>
+    </div>
+    <div>
+      <h4>Multipart Upload</h4>
+      <div>
+        <input name="multipart-upload" type="file" id="multipart" />
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      console.log('script loaded');
+      document.getElementById('single').addEventListener('change', function (e) {
+        console.log('single upload', e);
+        let file = e.target.files[0];
+        let data = new FormData();
+        data.append('file', file);
+        fetch('http://localhost:8080/api/v1/upload/single', {
+          method: 'POST',
+          body: data,
+        })
+          .then((res) => res.json())
+          .then((res) => {
+            console.log(res);
+          });
+      });
+      document.getElementById('multipart').addEventListener('change', async function (e) {
+        console.log('multipart upload', e);
+        let file = e.target.files[0];
+        let size = file.size;
+        let fileName = file.name;
+        console.log({ fileName, size });
+        let chunkSize = 5 * 1024 * 1024;
+        let chunkStart = 0;
+        let partNumber = 0;
+        let allChunks = [];
+        while (chunkStart < size) {
+          partNumber++;
+          let fileChunk = file.slice(chunkStart, chunkStart + chunkSize);
+          chunkStart = chunkStart + chunkSize;
+          allChunks.push({ partNumber, fileChunk });
+        }
+        let multipartInitiateUrl = `http://localhost:8080/api/v1/upload/multipart/initiate?fileName=${fileName}`;
+        let key = '';
+        let uploadId = '';
+        {
+          let res = await fetch(multipartInitiateUrl);
+          let resData = await res.json();
+          key = resData.key;
+          uploadId = resData.uploadId;
+        }
+        let promises = allChunks.map(async (chunk) => {
+          let uploadPartUrl = `http://localhost:8080/api/v1/upload/multipart/uploadPart?key=${key}&uploadId=${uploadId}&partNumber=${chunk.partNumber}`;
+          let data = new FormData();
+          data.append('file', chunk.fileChunk);
+          let res = await fetch(uploadPartUrl, { method: 'POST', body: data });
+          let resData = await res.json();
+          chunk.completedPart = resData.completedPart;
+        });
+        await Promise.all(promises);
+        let completedParts = allChunks.map((chunk) => chunk.completedPart);
+        {
+          let multipartFinishUrl = 'http://localhost:8080/api/v1/upload/multipart/finish';
+          let data = { uploadId, key, completedParts };
+          console.log(data);
+          let res = await fetch(multipartFinishUrl, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: { 'Content-Type': 'application/json' },
+          });
+          let resData = await res.json();
+          console.log(resData);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -450,3 +450,45 @@ pub struct CreateBroadcastReq {
     #[validate(length(min = 1))]
     pub message: String,
 }
+
+/// request schema for multipart upload initiate
+#[derive(Debug, Deserialize, Validate, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct MultipartUploadInitiateReq {
+    #[validate(length(min = 1))]
+    pub file_name: String,
+}
+
+/// request schema for multipart upload part
+#[derive(Debug, Deserialize, Validate, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct MultipartUploadPartReq {
+    #[validate(length(min = 1))]
+    pub key: String,
+    #[validate(length(min = 1))]
+    pub upload_id: String,
+    #[validate(range(min = 1))]
+    pub part_number: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadPartCompleted {
+    #[validate(length(min = 1))]
+    pub e_tag: String,
+    #[validate(range(min = 1))]
+    pub part_number: i32,
+    #[validate(range(min = 1))]
+    pub size: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CompleteMultipartUploadReq {
+    #[validate(length(min = 1))]
+    pub upload_id: String,
+    #[validate(length(min = 1))]
+    pub key: String,
+    #[validate]
+    pub completed_parts: Vec<UploadPartCompleted>,
+}
