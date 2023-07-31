@@ -41,8 +41,8 @@ pub async fn answer_play_tracker_handler(
     let contest = contest_result?;
     let play_tracker = play_tracker_result?;
     let (given_answer, is_correct) = check_if_correct(&contest, &body)?;
-    let is_finished = check_if_finished(&contest, &play_tracker)?;
-    let play_tracker = update_play_tracker(
+    let is_finished = check_if_finished(&contest, &play_tracker, body.question_no)?;
+    let mut play_tracker = update_play_tracker(
         &db,
         &body.contest_id,
         claims.id,
@@ -52,6 +52,9 @@ pub async fn answer_play_tracker_handler(
     )
     .await?;
     let question = get_question_not_finished(&contest, &play_tracker, is_finished)?;
+    if play_tracker.status != PlayTrackerStatus::FINISHED {
+        play_tracker.answers = None;
+    }
     let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
@@ -75,6 +78,7 @@ pub async fn check_play_tracker(
         .find_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("Play Tracker not found".into()))?;
+
     Ok(play_tracker)
 }
 
@@ -104,6 +108,7 @@ fn check_if_correct(
 fn check_if_finished(
     contest: &ContestWithQuestion,
     play_tracker: &PlayTracker,
+    curr_question_no: u32,
 ) -> Result<bool, AppError> {
     let questions = contest
         .questions
@@ -111,10 +116,18 @@ fn check_if_finished(
         .ok_or(AppError::BadRequestErr("questions not found".into()))?;
     let empty_vec = vec![];
     let answers = play_tracker.answers.as_ref().unwrap_or(&empty_vec);
+    if answers
+        .into_iter()
+        .any(|ans| ans.question.props.question_no == curr_question_no)
+    {
+        let err = format!("question {curr_question_no} is already answered");
+        return Err(AppError::BadRequestErr(err));
+    }
     let is_finished = questions.into_iter().all(|q| {
-        answers
-            .into_iter()
-            .any(|ans| ans.question.props.question_no == q.props.question_no)
+        q.props.question_no == curr_question_no
+            || answers
+                .into_iter()
+                .any(|ans| ans.question.props.question_no == q.props.question_no)
     });
 
     Ok(is_finished)
@@ -142,7 +155,7 @@ async fn update_play_tracker(
     }
     let update = doc! {
         "$push": {"answers": answer.to_bson()?},
-        "$inc": {"score": score},
+        "$inc": {"score": score, "totalAnswered": 1},
         "$set": set_obj
     };
     let options = FindOneAndUpdateOptions::builder()

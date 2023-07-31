@@ -113,6 +113,7 @@ pub async fn pay_contest_handler(
     })
     .await?;
     play_tracker.status = PlayTrackerStatus::PAID;
+    play_tracker.answers = None;
     let res = PlayTrackerResponse {
         success: true,
         data: play_tracker,

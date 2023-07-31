@@ -87,6 +87,8 @@ pub struct PlayTracker {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_questions: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_answered: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub answers: Option<Vec<ChosenAnswer>>,
@@ -119,6 +121,7 @@ impl PlayTracker {
             wallet_transaction_id: None,
             paid_amount: None,
             total_questions: Some(total_questions),
+            total_answered: Some(0),
             score: None,
             answers: None,
             time_taken: None,

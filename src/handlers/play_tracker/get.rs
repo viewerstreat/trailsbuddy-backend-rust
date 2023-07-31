@@ -35,7 +35,10 @@ pub async fn get_play_tracker_handler(
         validate_contest(&db, &contest_id),
         check_play_tracker(&db, &params.contest_id, claims.id)
     );
-    if let Some(play_tracker) = play_tracker_result? {
+    if let Some(mut play_tracker) = play_tracker_result? {
+        if play_tracker.status != PlayTrackerStatus::FINISHED {
+            play_tracker.answers = None;
+        }
         let res = PlayTrackerResponse {
             success: true,
             data: play_tracker,

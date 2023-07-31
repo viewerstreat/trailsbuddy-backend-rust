@@ -47,8 +47,12 @@ pub async fn start_play_tracker_handler(
         let err = AppError::BadRequestErr(err.into());
         return Err(err);
     }
-    let play_tracker = update_play_tracker(&db, &body.contest_id, claims.id, &play_tracker).await?;
+    let mut play_tracker =
+        update_play_tracker(&db, &body.contest_id, claims.id, &play_tracker).await?;
     let question = get_question(&contest, &play_tracker)?;
+    if play_tracker.status != PlayTrackerStatus::FINISHED {
+        play_tracker.answers = None;
+    }
     let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
@@ -81,8 +85,11 @@ pub async fn get_next_ques_handler(
         check_play_tracker(&db, &params.contest_id, claims.id)
     );
     let contest = contest_result?;
-    let play_tracker = play_tracker_result?;
+    let mut play_tracker = play_tracker_result?;
     let question = get_question(&contest, &play_tracker)?;
+    if play_tracker.status != PlayTrackerStatus::FINISHED {
+        play_tracker.answers = None;
+    }
     let res = PlayTrackerQuesRes {
         success: true,
         data: play_tracker,
@@ -152,6 +159,7 @@ pub async fn check_play_tracker(
         .find_one::<PlayTracker>(DB_NAME, COLL_PLAY_TRACKERS, Some(filter), None)
         .await?
         .ok_or(AppError::NotFound("Play Tracker not found".into()))?;
+
     Ok(play_tracker)
 }
 
