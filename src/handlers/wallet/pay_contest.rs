@@ -44,7 +44,11 @@ pub async fn pay_contest_handler(
     let contest = validate_contest(&db, &contest_id).await?;
     let mut play_tracker = check_play_tracker(&db, &contest, claims.id).await?;
     let bonus_money_amount = body.bonus_money_amount.unwrap_or_default();
-    debug_assert!(contest.props.entry_fee_max_bonus_money <= contest.props.entry_fee);
+    if contest.props.entry_fee_max_bonus_money > contest.props.entry_fee {
+        let err =
+            "Invalid contest configuration. entryFeeMaxBonus should be less than total entryFee";
+        return Err(AppError::BadRequestErr(err.into()));
+    }
     if bonus_money_amount > contest.props.entry_fee_max_bonus_money {
         let err = format!(
             "entryFeeMaxBonusMoney is : {}",
@@ -58,7 +62,7 @@ pub async fn pay_contest_handler(
     let user_balance = get_user_balance(&db, claims.id).await?.unwrap_or_default();
     if user_balance.real() < real_money_amount {
         let err = format!(
-            "Insufficient user balance, real money requuired: {}",
+            "Insufficient user balance, real money required: {}",
             real_money_amount
         );
         let err = AppError::BadRequestErr(err);
@@ -66,7 +70,7 @@ pub async fn pay_contest_handler(
     }
     if user_balance.bonus() < bonus_money_amount {
         let err = format!(
-            "Insufficient user balance, bonusmoney requuired: {}",
+            "Insufficient user balance, bonus money required: {}",
             bonus_money_amount
         );
         let err = AppError::BadRequestErr(err);
